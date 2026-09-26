@@ -140,15 +140,14 @@ async function extract(msg) {
     return parsed;
 }
 
-function toEntries(parsed, index) {
+// Surucu kimligi: <@id> > lig alias tablosu (DriverAlias) > uye adi > ad anahtari.
+function toEntries(parsed, index, aliases) {
+    const { resolve } = require('./identity');
     const finished = [], dnf = [];
     for (const e of parsed.entries.slice(0, 40)) {
-        const name = String(e?.name || '').trim().slice(0, 60);
-        const mention = String(e?.userId || name).match(/\d{15,21}/)?.[0] || null;
-        const userId = mention || index.get(norm(name)) || null;
-        const key = userId ? `u:${userId}` : (norm(name) ? `n:${norm(name)}` : null);
-        if (!key) continue;
-        (e?.dnf ? dnf : finished).push({ key, userId, name: name.replace(/<@!?\d+>/g, '').trim() || name, dnf: !!e?.dnf });
+        const who = resolve(e?.name, e?.userId, index, aliases);
+        if (!who) continue;
+        (e?.dnf ? dnf : finished).push({ ...who, dnf: !!e?.dnf });
     }
     return [...finished, ...dnf].map((e, i) => ({ ...e, position: i + 1 }));
 }
