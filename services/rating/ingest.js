@@ -25,6 +25,8 @@ const RESULTS_RE        = /(result|sonu[çc]|classification|klasman|race-?report
 const MADCAR_RE         = /mad\s*car/i;
 // Cok oyunlu sunucularda (M25) Madcar disi liglerin sonuc kanallari.
 const OTHER_GAME_RE     = /(f1\s*20\d\d|efootball|minecraft|roblox|gta|fifa|\bfc\s*2\d\b|forza|gran\s*turismo|iracing|assetto)/i;
+// Sadece ana sampiyonalar: kupalar, "Road to" merdivenleri, alt seriler sayilmaz.
+const SIDE_EVENT_RE     = /(\bcups?\b|road\s*to|karting|\bf3\b|\bf4\b|\bfr\b|\brng\b|gold)/i;
 const FIRST_SCAN_LIMIT  = 60;
 const MAX_PER_RUN       = 12;   // Gemma free tier dakikalik limitine sigsin
 
