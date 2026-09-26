@@ -105,6 +105,7 @@ function resultChannels(guild) {
         c.type !== ChannelType.GuildVoice && c.type !== ChannelType.GuildStageVoice &&
         RESULTS_RE.test(`${c.parent?.name || ''} ${c.name}`) &&
         !OTHER_GAME_RE.test(`${c.parent?.name || ''} ${c.name}`) &&
+        !SIDE_EVENT_RE.test(`${c.parent?.name || ''} ${c.name}`) &&
         me && c.permissionsFor(me)?.has([F.ViewChannel, F.ReadMessageHistory]));
 }
 
