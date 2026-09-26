@@ -100,6 +100,7 @@ function resultChannels(guild) {
         c.isTextBased() && !c.isThread() &&
         c.type !== ChannelType.GuildVoice && c.type !== ChannelType.GuildStageVoice &&
         RESULTS_RE.test(`${c.parent?.name || ''} ${c.name}`) &&
+        !OTHER_GAME_RE.test(`${c.parent?.name || ''} ${c.name}`) &&
         me && c.permissionsFor(me)?.has([F.ViewChannel, F.ReadMessageHistory]));
 }
 
