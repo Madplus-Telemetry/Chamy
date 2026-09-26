@@ -184,8 +184,11 @@ async function ingestGuild(guild) {
 
             const parsed = await extract(msg).catch(err => { console.error('[RATING] extract:', err.message); return null; });
             if (!parsed) continue;
-            if (!index) index = await memberIndex(guild);
-            const entries = toEntries(parsed, index);
+            if (!index) {
+                index = await memberIndex(guild);
+                aliases = await require('./identity').loadAliases(guild.id);
+            }
+            const entries = toEntries(parsed, index, aliases);
             if (entries.length < 2) continue;
 
             await RaceResult.updateOne(
