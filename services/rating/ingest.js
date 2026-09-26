@@ -161,7 +161,7 @@ async function ingestGuild(guild) {
     const channels = resultChannels(guild);
     if (!channels.length) return { scanned: 0, added: 0, skipped: 'no results channel' };
 
-    let index = null;
+    let index = null, aliases = null;
     let scanned = 0, added = 0, budget = MAX_PER_RUN;
 
     for (const channel of channels) {
