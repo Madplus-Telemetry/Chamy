@@ -86,7 +86,9 @@ function looksLikeResult(msg) {
 
 async function isMadcarGuild(guild) {
     const p = await ServerProfile.findOne({ guildId: guild.id }, { games: 1 }).lean().catch(() => null);
-    if (p?.games?.length) return p.games.some(g => MADCAR_RE.test(String(g).normalize('NFKC')));
+    if (p?.games?.some(g => MADCAR_RE.test(String(g).normalize('NFKC')))) return true;
+    // Profil oyun listesi eksik/yanlis olabilir (M25: "F1 2020, Roblox..." diye
+    // ogrenilmis ama adi "Madcar 25"): ad, aciklama ve kanal adlarina da bak.
     const channels = [...guild.channels.cache.values()].map(c => c.name).join(' ');
     return MADCAR_RE.test(`${guild.name} ${guild.description || ''} ${channels}`.normalize('NFKC'));
 }
