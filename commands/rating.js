@@ -51,7 +51,7 @@ module.exports = {
                 .setAuthor({ name: user.globalName || user.username, iconURL: user.displayAvatarURL() })
                 .setTitle(r.placement
                     ? `Placement ${r.races}/${engine.PLACEMENT_RACES} · ${Math.round(r.rating)}`
-                    : `${Math.round(r.rating)} · Level ${r.level}`)
+                    : `${Math.round(r.rating)} · ${r.challenger ? `Challenger #${r.rank}` : `Level ${r.level}`}`)
                 .addFields(
                     { name: 'Races', value: String(r.races), inline: true },
                     { name: 'Wins', value: String(r.wins), inline: true },
