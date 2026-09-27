@@ -147,9 +147,14 @@ function recompute(races) {
         const f = fieldFactors(keys, players);
         const lp = leaguePrestige(race, players, guildActivity);
         const source = SOURCE_WEIGHT[race.source] ?? 1;
-        const weight = clamp(source * f.strength * f.recognition * f.size * lp.prestige, WEIGHT_MIN, WEIGHT_MAX);
+        const season = isSeasonTable(race);
+        const size = season ? 1 : f.size;
+        const weight = clamp(source * f.strength * f.recognition * size * lp.prestige * (season ? SEASON_WEIGHT : 1), WEIGHT_MIN, WEIGHT_MAX);
 
         const before = keys.map(k => players.get(k).rating);
+        const strengths = before.map(r => Math.pow(10, r / ELO_SCALE));
+        const totalStrength = strengths.reduce((a, b) => a + b, 0);
+        const winProb = strengths.map(s => s / totalStrength);
         const deltas = keys.map((k, i) => {
             const me = players.get(k);
             const meEstablished = me.races >= PLACEMENT_RACES;
