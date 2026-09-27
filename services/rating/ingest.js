@@ -235,4 +235,4 @@ async function recomputeAll() {
     return { players: players.size, races: races.length };
 }
 
-module.exports = { ingestGuild, recomputeAll, isMadcarGuild, resultChannels };
+module.exports = { ingestGuild, recomputeAll, isMadcarGuild, resultChannels, extract, toEntries, memberIndex, looksLikeResult };
