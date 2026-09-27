@@ -167,7 +167,8 @@ function recompute(races) {
                 sum += damp * (s - expected(before[i], before[j]));
             }
             const kMult = meEstablished ? 1 : PLACEMENT_K_MULT;
-            return K_BASE * kMult * weight * sum / (keys.length - 1);
+            const winScore = (i === 0 && !entries[0].dnf ? 1 : 0) - winProb[i];
+            return K_BASE * kMult * weight * (sum / (keys.length - 1) + WIN_WEIGHT * winScore);
         });
 
         const raceAt = new Date(race.raceAt);
