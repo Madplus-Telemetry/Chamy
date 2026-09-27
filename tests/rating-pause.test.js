@@ -177,3 +177,24 @@ test('manual rating commands cannot refill or display stale ratings while paused
         assert.equal(response.ephemeral, true);
     }
 });
+
+test('FACEIT levels, rating floor and challenger (L10 + top 10)', () => {
+    const engine = load('services/rating/engine.js');
+    const cases = [[100, 1], [500, 1], [501, 2], [750, 2], [751, 3], [900, 3], [901, 4], [1050, 4], [1051, 5],
+        [1200, 5], [1201, 6], [1350, 6], [1351, 7], [1530, 7], [1531, 8], [1750, 8], [1751, 9], [2000, 9], [2001, 10], [2600, 10]];
+    for (const [r, lv] of cases) assert.equal(engine.levelOf(r), lv, `rating ${r}`);
+
+    // A always wins, Z always last: after many races A is on top, nobody is below the floor.
+    const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'Z'];
+    const races = [];
+    for (let i = 0; i < 400; i++) {
+        races.push({ _id: `r${i}`, source: 'league', guildId: 'g', memberCount: 700, raceAt: new Date(Date.UTC(2025, 0, 1) + i * 864e5),
+            entries: names.map((n, k) => ({ key: n, name: n, position: k + 1 })) });
+    }
+    const { players } = engine.recompute(races);
+    const a = players.get('A'), z = players.get('Z');
+    assert.equal(a.rank, 1);
+    assert.ok(z.rating >= engine.RATING_FLOOR);
+    for (const p of players.values()) assert.equal(p.challenger, p.level >= 10 && p.rank <= engine.CHALLENGER_TOP);
+    assert.ok([...players.values()].filter(p => p.challenger).length <= 10);
+});
