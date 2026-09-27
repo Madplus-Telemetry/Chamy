@@ -225,7 +225,7 @@ async function recomputeAll() {
             update: { $set: {
                 userId: p.userId, name: p.name, rating: p.rating, level: p.level, races: p.races,
                 wins: p.wins, podiums: p.podiums, peak: p.peak, placement: p.placement,
-                history: p.history, lastRaceAt: p.lastRaceAt,
+                history: p.history, lastRaceAt: p.lastRaceAt, rank: p.rank, challenger: p.challenger,
             } },
             upsert: true,
         },
