@@ -47,6 +47,15 @@ const LEAGUE_WINDOW_MS        = 90 * 24 * 60 * 60 * 1000;
 // sqrt: 50 uye 0.27, 200 uye 0.53, 400 uye 0.76, 700+ uye 1.0
 const MEMBERS_FULL            = 700;
 const HISTORY_KEEP            = 30;
+// Galibiyet terimi (Plackett-Luce ilk sira): kazanan, kazanma ihtimali
+// ne kadar dusukse o kadar ek puan alir; digerleri kazanma ihtimalleri
+// oraninda az kaybeder (toplam sifir). Ikili Elo P1 ile P2'yi neredeyse
+// esit sayiyordu: 19 galibiyetli surucu 7 galibiyetliyle basabasti.
+const WIN_WEIGHT              = 0.3;
+// Sezon sonu puan tablosu = bir sezonun tamami: tek yaristan agir sayilir,
+// ilk 3 kaydi (3 kisilik) kadro cezasi almaz.
+const SEASON_WEIGHT           = 1.25;
+const isSeasonTable = race => /season\s*standings/i.test(race.track || '');
 
 // Seviye esikleri (FACEIT): L1 100-500, L2 501-750, L3 751-900, L4 901-1050,
 // L5 1051-1200, L6 1201-1350, L7 1351-1530, L8 1531-1750, L9 1751-2000, L10 2001+
