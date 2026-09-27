@@ -98,6 +98,9 @@ test('the release switch restores the existing Discord results import', async ()
             '../../lib/gemma': { generate: async () => JSON.stringify({
                 isRaceResult: true, entries: [{ name: 'Alice' }, { name: 'Bob' }],
             }) },
+            './identity': load('services/rating/identity.js', {
+                deps: { '../../models/DriverAlias': { find: () => ({ lean: async () => [] }) } },
+            }),
         },
     });
     assert.deepEqual(plain(await ingest.ingestGuild(guild)), { scanned: 1, added: 1 });
