@@ -6,7 +6,7 @@
 // Yaris basina degisim (surucu i):
 //   delta_i = K * kMult_i * W * Σ_j damp_ij * (S_ij - E_ij) / (N - 1)
 //     S_ij  : i, j'nin onunde bitirdiyse 1, arkasindaysa 0, ikisi de DNF ise 0.5
-//     E_ij  : Elo beklentisi 1 / (1 + 10^((R_j - R_i)/400))
+//     E_ij  : Elo beklentisi 1 / (1 + 10^((R_j - R_i)/ELO_SCALE))
 //     kMult : yerlesme (ilk 10 yaris) 2x
 //     damp  : yerlesmis surucu, yerlesmemis rakibe karsi 0.5 (yeni gelen
 //             rastgele sonucla yerlesmis birini fazla oynatmasin)
@@ -22,10 +22,20 @@
 //                 lig rating'i = o aktif suruculerin ort. rating'i / 1000 (0.7..1.4)
 //                 public odalarda 1
 //   W en az 0.1, en fazla 1.6.
+//
+// Seviyeler FACEIT tablosu: L1 100-500 ... L10 2001+. Rating 100'un altina
+// inmez. Madcar kucuk bir toplum oldugu icin FACEIT'in 400 olcegi puanlari
+// ~700-1350 arasina sikistiriyordu; ELO_SCALE 1500 + K 100 ile ayni
+// basari farki 100-2200 araligina yayiliyor (sentetik 420 yarislik
+// simulasyonda: medyan ~1000, ust %2 L10, yaris basina ort. |degisim| ~17).
+// Challenger: Level 10 olup yerlesmis suruculer arasinda ilk CHALLENGER_TOP.
 // ───────────────────────────────────────────────────────────────────────────
 
 const START_RATING            = 1000;
-const K_BASE                  = 32;
+const K_BASE                  = 100;
+const ELO_SCALE               = 1500;
+const RATING_FLOOR            = 100;
+const CHALLENGER_TOP          = 10;
 const PLACEMENT_RACES         = 10;
 const PLACEMENT_K_MULT        = 2;
 const PLACEMENT_OPPONENT_DAMP = 0.5;
@@ -38,8 +48,9 @@ const LEAGUE_WINDOW_MS        = 90 * 24 * 60 * 60 * 1000;
 const MEMBERS_FULL            = 700;
 const HISTORY_KEEP            = 30;
 
-// Seviye esikleri: 1..10
-const LEVEL_THRESHOLDS = [800, 900, 1000, 1100, 1200, 1300, 1450, 1600, 1800];
+// Seviye esikleri (FACEIT): L1 100-500, L2 501-750, L3 751-900, L4 901-1050,
+// L5 1051-1200, L6 1201-1350, L7 1351-1530, L8 1531-1750, L9 1751-2000, L10 2001+
+const LEVEL_THRESHOLDS = [501, 751, 901, 1051, 1201, 1351, 1531, 1751, 2001];
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const round1 = v => Math.round(v * 10) / 10;
@@ -49,7 +60,7 @@ function levelOf(rating) {
 }
 
 function expected(ra, rb) {
-    return 1 / (1 + Math.pow(10, (rb - ra) / 400));
+    return 1 / (1 + Math.pow(10, (rb - ra) / ELO_SCALE));
 }
 
 function fieldFactors(keys, players) {
@@ -148,7 +159,9 @@ function recompute(races) {
         const raceAt = new Date(race.raceAt);
         keys.forEach((k, i) => {
             const p = players.get(k);
-            p.rating += deltas[i];
+            const prev = p.rating;
+            p.rating = Math.max(RATING_FLOOR, p.rating + deltas[i]);   // 100'un altina inmez
+            const applied = p.rating - prev;
             p.races += 1;
             if (i === 0 && !entries[i].dnf) p.wins += 1;
             if (i < 3 && !entries[i].dnf) p.podiums += 1;
@@ -157,7 +170,7 @@ function recompute(races) {
             p.history.push({
                 raceId: String(race._id || race.messageId || ''),
                 at: raceAt,
-                delta: round1(deltas[i]),
+                delta: round1(applied),
                 rating: round1(p.rating),
                 weight: round1(weight * 100) / 100,
                 place: entries[i].dnf ? 0 : i + 1,
@@ -183,11 +196,19 @@ function recompute(races) {
         p.peak = round1(p.peak);
         p.level = levelOf(p.rating);
         p.placement = p.races < PLACEMENT_RACES;
+        p.challenger = false;
+        p.rank = null;
     }
+    // Siralama (sadece yerlesmis suruculer) + Challenger: L10'lar arasinda ilk 10
+    const ranked = [...players.values()].filter(p => !p.placement).sort((a, b) => b.rating - a.rating);
+    ranked.forEach((p, i) => {
+        p.rank = i + 1;
+        p.challenger = p.level >= 10 && i < CHALLENGER_TOP;
+    });
     return { players, raceWeights };
 }
 
 module.exports = {
-    START_RATING, K_BASE, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
+    START_RATING, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
     levelOf, expected, recompute,
 };

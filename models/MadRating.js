@@ -25,6 +25,8 @@ const madRatingSchema = new Schema({
     podiums:    { type: Number, default: 0 },
     peak:       { type: Number, default: 1000 },
     placement:  { type: Boolean, default: true },   // ilk 10 yaris
+    rank:       { type: Number, default: null },    // yerlesmis suruculer arasinda sira
+    challenger: { type: Boolean, default: false },  // Level 10 + ilk 10
     history:    { type: [historySchema], default: [] },
     lastRaceAt: { type: Date, default: null },
 }, { timestamps: true });
