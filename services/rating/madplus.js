@@ -293,6 +293,8 @@ async function pushRatings() {
         peak: r.peak,
         placement: r.placement,
         placementRaces: engine.PLACEMENT_RACES,
+        rank: r.rank ?? null,
+        challenger: !!r.challenger,
         lastRaceAt: r.lastRaceAt ? new Date(r.lastRaceAt).getTime() : null,
         history: (r.history || []).map(h => ({
             at: h.at ? new Date(h.at).getTime() : null,
