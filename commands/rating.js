@@ -67,7 +67,7 @@ module.exports = {
             const rows = await MadRating.find({ placement: false }).sort({ rating: -1 }).limit(15).lean();
             if (!rows.length) return interaction.reply({ content: 'No established drivers yet (10 races needed).', ephemeral: true });
             const lines = rows.map((r, i) =>
-                `\`${String(i + 1).padStart(2)}\` ${r.userId ? `<@${r.userId}>` : r.name} — **${Math.round(r.rating)}** · L${r.level} · ${r.races} races`);
+                `\`${String(i + 1).padStart(2)}\` ${r.userId ? `<@${r.userId}>` : r.name} — **${Math.round(r.rating)}** · ${r.challenger ? 'Challenger' : `L${r.level}`} · ${r.races} races`);
             const embed = new EmbedBuilder().setColor(0x00E676).setTitle('🏁 Mad+ rating — top drivers').setDescription(lines.join('\n'));
             return interaction.reply({ embeds: [embed], allowedMentions: { parse: [] } });
         }
