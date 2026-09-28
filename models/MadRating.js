@@ -19,12 +19,20 @@ const madRatingSchema = new Schema({
     userId:     { type: String, default: null, index: true },
     name:       { type: String, default: '' },
     rating:     { type: Number, default: 1000 },
+    ratingVersion: { type: Number, default: 2 },
+    scanRating: { type: Number, default: null },
+    scanContribution: { type: Number, default: 0 },
+    baseRating: { type: Number, default: 1000 },
+    appDelta: { type: Number, default: 0 },
+    historicalRaces: { type: Number, default: 0 },
+    historicalWins: { type: Number, default: 0 },
+    historicalPodiums: { type: Number, default: 0 },
     level:      { type: Number, default: 4 },
     races:      { type: Number, default: 0 },
     wins:       { type: Number, default: 0 },
     podiums:    { type: Number, default: 0 },
     peak:       { type: Number, default: 1000 },
-    placement:  { type: Boolean, default: true },   // ilk 10 yaris
+    placement:  { type: Boolean, default: true },   // first 10 own Mad+ races; scans never qualify
     rank:       { type: Number, default: null },    // yerlesmis suruculer arasinda sira
     challenger: { type: Boolean, default: false },  // Level 10 + ilk 10
     history:    { type: [historySchema], default: [] },

@@ -15,7 +15,7 @@ const TICK_MS = 20 * 60 * 1000;
 const lastScan = new Map(); // guildId -> ms
 let running = false;
 
-async function tick(client) {
+async function tick(client, scan = true) {
     if (running) return;
     running = true;
     try {
@@ -30,7 +30,7 @@ async function tick(client) {
         });
         if (pulled.added) console.log(`[RATING] ${pulled.added} new Mad+ race reports`);
 
-        if (process.env.GEMINI_API_KEY) {
+        if (scan && process.env.GEMINI_API_KEY) {
             const next = [...client.guilds.cache.values()]
                 .sort((a, b) => (lastScan.get(a.id) || 0) - (lastScan.get(b.id) || 0))[0];
             if (next) {
@@ -56,6 +56,8 @@ async function tick(client) {
 module.exports = (client) => {
     const start = () => {
         if (isRatingEnabled()) {
+            // Apply rating rule migrations immediately using the saved races.
+            setTimeout(() => tick(client, false), 5_000).unref?.();
             setTimeout(() => tick(client), 5 * 60 * 1000).unref?.();
         } else {
             console.log('[RATING] Paused until release (MADPLUS_RATING_ENABLED is not true).');

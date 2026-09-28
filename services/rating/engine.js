@@ -2,6 +2,10 @@
 // ───────────────────────────────────────────────────────────────────────────
 // Mad+ rating -- saf matematik, DB yok. Tum yarislar tarih sirasiyla BASTAN
 // oynatilir; agirlik degisince eski yarislar da yeni agirlikla yeniden hesaplanir.
+// v2: imported history is replayed separately. Half its TOTAL rating becomes
+// the base (2034 -> 1017), then own Mad+ race deltas are added at full weight.
+// Only 10 own app reports complete placement; scans never grant a rank.
+// Without imported history the existing 1000-point start is retained.
 //
 // Yaris basina degisim (surucu i):
 //   delta_i = K * kMult_i * W * Σ_j damp_ij * (S_ij - E_ij) / (N - 1)
@@ -32,6 +36,7 @@
 // ───────────────────────────────────────────────────────────────────────────
 
 const START_RATING            = 1000;
+const SCAN_CREDIT             = 0.5;
 const K_BASE                  = 100;
 const ELO_SCALE               = 1500;
 const RATING_FLOOR            = 100;
@@ -118,12 +123,18 @@ function newPlayer(entry) {
     };
 }
 
+// Only the authenticated reporter's own row is a Mad+ placement race.
+// Source labels, Discord scans and another driver's report are not evidence.
+function isAppEntry(race, entry) {
+    return !isSeasonTable(race) && race.appVerified === true &&
+        entry.appRecorded === true && !!entry.userId && entry.key === `u:${entry.userId}`;
+}
+
 /**
  * @param races RaceResult benzeri objeler (entries bitis sirasinda, DNF'ler sonda)
  * @returns { players: Map<key, player>, raceWeights: [...] }
  */
-function recompute(races) {
-    const players = new Map();
+function replay(races, players = new Map(), appMode = false) {
     const guildActivity = new Map();
     const raceWeights = [];
 
@@ -173,6 +184,9 @@ function recompute(races) {
 
         const raceAt = new Date(race.raceAt);
         keys.forEach((k, i) => {
+            // A matched league/app race is scored once per driver: either
+            // imported history or their own app ledger, never both.
+            if (isAppEntry(race, entries[i]) !== appMode) return;
             const p = players.get(k);
             const prev = p.rating;
             p.rating = Math.max(RATING_FLOOR, p.rating + deltas[i]);   // 100'un altina inmez
@@ -223,7 +237,46 @@ function recompute(races) {
     return { players, raceWeights };
 }
 
+function recompute(races) {
+    const valid = races.filter(r => !r.ignored);
+    const scanned = replay(valid.filter(r => r.source !== 'public'));
+    const seeds = new Map();
+    for (const old of scanned.players.values()) {
+        if (!old.races) continue;
+        const scanContribution = round1(old.rating * SCAN_CREDIT);
+        const baseRating = Math.max(RATING_FLOOR, scanContribution);
+        seeds.set(old.key, {
+            ...newPlayer(old), rating: baseRating, peak: baseRating,
+            scanRating: old.rating, scanContribution, baseRating,
+            historicalRaces: old.races, historicalWins: old.wins,
+            historicalPodiums: old.podiums,
+        });
+    }
+    const live = replay(valid.filter(r => r.entries?.some(e => isAppEntry(r, e))), seeds, true);
+    for (const [key, p] of live.players) {
+        if (!p.races && !p.historicalRaces) {
+            live.players.delete(key);
+            continue;
+        }
+        p.scanRating ??= null;
+        p.scanContribution ??= 0;
+        p.baseRating ??= START_RATING;
+        p.historicalRaces ??= 0;
+        p.historicalWins ??= 0;
+        p.historicalPodiums ??= 0;
+        p.appDelta = round1(p.rating - p.baseRating);
+        p.ratingVersion = 2;
+    }
+    return {
+        players: live.players,
+        raceWeights: [
+            ...scanned.raceWeights.map(w => ({ ...w, ledger: 'scan' })),
+            ...live.raceWeights.map(w => ({ ...w, ledger: 'app' })),
+        ],
+    };
+}
+
 module.exports = {
     START_RATING, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
-    levelOf, expected, recompute,
+    SCAN_CREDIT, levelOf, expected, recompute,
 };

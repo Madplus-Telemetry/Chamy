@@ -108,6 +108,32 @@ channel afresh (using the existing initial 60-message window). Account links,
 legacy driver ratings, economies and all other collections are unrelated to
 this reset.
 
+### Rating history and app placements (v2)
+
+Discord scans and manually imported league results form a separate historical
+rating. **50% of its total** becomes the driver's starting rating: 2034 becomes
+1017, not 1517. Drivers without imported history retain the 1000-point start;
+the existing 100-point floor still applies. Historical races, wins and podiums
+are retained separately in `historicalRaces`, `historicalWins` and
+`historicalPodiums`.
+
+Only a driver's own authenticated Mad+ race report advances their 10-race
+placement. Appearing in another driver's report or in a scanned season table
+does not count. App race gains and losses are added at full weight to that base,
+with the existing 2x placement multiplier. A matched Discord/app race is scored
+once per driver. Rank, leaderboard eligibility and Challenger remain locked
+until 10 app races have been recorded; the level after placement depends on
+results and is not guaranteed.
+
+`races`, `wins`, `podiums` and `history` now describe the app ledger.
+`scanRating`, `scanContribution`, `baseRating` and `appDelta` explain the total.
+Recomputation rebuilds both ledgers from retained source records, so restarting
+or rescanning cannot repeatedly halve a balance. Stored app reports do not age
+out of the calculation. The enabled bot refreshes ratings and the lobby snapshot
+five seconds after startup, then resumes its normal scanning schedule.
+
+Run the rating regression suite with `node --test tests/rating-*.test.js`.
+
 ## License
 
 MIT — see [LICENSE](LICENSE).

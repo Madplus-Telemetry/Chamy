@@ -26,7 +26,7 @@ const CURSOR_ID        = 'lobby:race-reports';
 const PUBLIC_GRACE_MS  = 6 * 60 * 60 * 1000;
 const MATCH_BEFORE_MS  = 8 * 60 * 60 * 1000;  // sonuc kanala yaristan en gec 8 saat sonra
 const MATCH_AFTER_MS   = 60 * 60 * 1000;
-const REPORT_WINDOW_MS = 365 * 24 * 60 * 60 * 1000;
+const REPORT_DUPLICATE_MS = 2 * 60 * 1000;
 
 // Isim eslestirme: \"K_Møi21\" == \"kmoi21\", \"Ñandú\" == \"nandu\". NFKC suslu
 // unicode'u duzeltir, sonra ozel harfler katlanir, aksanlar atilir.
@@ -113,8 +113,13 @@ async function pullReports() {
 
 async function buildRaces(leagueRaces) {
     if (!isRatingEnabled()) return [];
-    const reports = await RaceReport.find({ finishedAt: { $gte: new Date(Date.now() - REPORT_WINDOW_MS) } }).lean();
+    // Placement and earned rating must survive a report becoming a year old.
+    const reports = await RaceReport.find({}).lean();
     const links = await MadcarLink.find({}).lean();
+    return buildRacesFromReports(leagueRaces, reports, links);
+}
+
+function buildRacesFromReports(leagueRaces, reports, links, now = Date.now()) {
     const byMadcar = new Map(links.map(l => [l.madcarId, l.discordId]));
     const byNick = new Map();
     for (const l of links) if (l.nick) byNick.set(norm(l.nick), l.discordId);
@@ -129,21 +134,50 @@ async function buildRaces(leagueRaces) {
 
     // 1) Ayni yaris birden fazla kisiden geldiyse tek yaris
     const groups = new Map();
-    for (const r of reports) {
-        const sig = `${r.roomCode || ''}|` + r.entries.map(e => `${e.position ?? 'x'}:${norm(e.nick)}`).sort().join(',');
-        if (!groups.has(sig)) groups.set(sig, { report: r, reporters: new Set() });
-        groups.get(sig).reporters.add(r.reporterDiscordId);
+    const latestGroup = new Map();
+    for (const r of [...reports].sort((a, b) => new Date(a.finishedAt) - new Date(b.finishedAt))) {
+        const at = new Date(r.finishedAt).getTime();
+        if (!Number.isFinite(at)) continue;
+        const sig = `${r.roomCode || ''}|` + r.entries.map(e => `${e.position ?? 'x'}:${norm(e.nick)}:${e.bestLap || ''}`).sort().join(',');
+        let g = latestGroup.get(sig);
+        if (!g || at - new Date(g.report.finishedAt).getTime() > REPORT_DUPLICATE_MS) {
+            g = { report: r, owners: new Map() };
+            groups.set(`${sig}|${at}`, g);
+            latestGroup.set(sig, g);
+        }
+        const local = r.entries.filter(e => e.local === true);
+        if (/^\d{17,20}$/.test(r.reporterDiscordId || '') && local.length === 1) {
+            // Keep every reporter's local row; choosing the first report must
+            // not discard the other Mad+ users in the same race.
+            const e = local[0];
+            const identity = e.madcarId ? `m:${e.madcarId}` : `n:${norm(e.nick)}`;
+            if (identity !== 'n:') {
+                const prev = g.owners.get(identity);
+                g.owners.set(identity, prev && prev.userId !== r.reporterDiscordId
+                    ? { conflict: true }
+                    : { key: `u:${r.reporterDiscordId}`, userId: r.reporterDiscordId, nick: norm(e.nick) });
+            }
+        }
     }
+
+    const identityInReport = (e, group) => {
+        const identity = e.madcarId ? `m:${e.madcarId}` : `n:${norm(e.nick)}`;
+        const own = group.owners.get(identity);
+        if (own && !own.conflict) return { key: own.key, userId: own.userId };
+        return keyOf(e);
+    };
 
     // 2) Lig sonuclari: isimleri hesaplara bagla, eslesen Mad+ raporunu bul
     const matched = new Set();
     const out = [];
-    for (const race of leagueRaces) {
+    for (const race of [...leagueRaces].sort((a, b) => new Date(a.raceAt) - new Date(b.raceAt))) {
         const raceAt = new Date(race.raceAt).getTime();
         const names = new Set(race.entries.map(e => norm(e.name)).filter(Boolean));
         let hit = null;
         for (const [sig, g] of groups) {
+            if (/season\s*standings/i.test(race.track || '')) break;
             if (matched.has(sig)) continue;
+            if (race.track && g.report.trackId && norm(race.track) !== norm(g.report.trackId)) continue;
             const ft = new Date(g.report.finishedAt).getTime();
             if (ft > raceAt + MATCH_AFTER_MS || ft < raceAt - MATCH_BEFORE_MS) continue;
             const overlap = g.report.entries.filter(e => names.has(norm(e.nick))).length;
@@ -152,10 +186,15 @@ async function buildRaces(leagueRaces) {
         }
 
         const fromReport = new Map();
+        const appUsers = new Set();
         if (hit) {
             matched.add(hit);
-            for (const e of groups.get(hit).report.entries) {
-                const k = keyOf(e);
+            const group = groups.get(hit);
+            for (const owner of group.owners.values()) {
+                if (!owner.conflict) appUsers.add(owner.userId);
+            }
+            for (const e of group.report.entries) {
+                const k = identityInReport(e, group);
                 if (k) fromReport.set(norm(e.nick), k);
             }
         }
@@ -167,25 +206,27 @@ async function buildRaces(leagueRaces) {
             if (linked) return { ...e, key: `u:${linked}`, userId: linked };
             const k = fromReport.get(n);           // Mad+ raporundaki Madcar ID
             return k ? { ...e, key: k.key, userId: k.userId } : e;
-        });
-        out.push({ ...race, entries, source: hit ? 'league_madplus' : race.source });
+        }).map(e => ({ ...e, appRecorded: !!e.userId && appUsers.has(e.userId) }));
+        out.push({ ...race, entries, appVerified: !!hit, source: hit ? 'league_madplus' : race.source });
     }
 
     // 3) Eslesmeyen raporlar -> public oda yarisi (6 saat bekledikten sonra)
     for (const [sig, g] of groups) {
         if (matched.has(sig)) continue;
         const r = g.report;
-        if (Date.now() - new Date(r.finishedAt).getTime() < PUBLIC_GRACE_MS) continue;
+        if (now - new Date(r.finishedAt).getTime() < PUBLIC_GRACE_MS) continue;
+        const appUsers = new Set([...g.owners.values()].filter(o => !o.conflict).map(o => o.userId));
         const finished = [], dnf = [];
         const ordered = [...r.entries].sort((a, b) => (a.position ?? 1e9) - (b.position ?? 1e9));
         for (const e of ordered) {
-            const k = keyOf(e);
+            const k = identityInReport(e, g);
             if (!k) continue;
-            (e.position == null ? dnf : finished).push({ key: k.key, userId: k.userId, name: e.nick, dnf: e.position == null });
+            (e.position == null ? dnf : finished).push({ key: k.key, userId: k.userId, name: e.nick, dnf: e.position == null,
+                appRecorded: !!k.userId && appUsers.has(k.userId) });
         }
         const entries = [...finished, ...dnf].map((e, i) => ({ ...e, position: i + 1 }));
         if (entries.length < 2) continue;
-        out.push({ _id: `report:${String(r._id)}`, source: 'public', guildId: '', raceAt: r.finishedAt, memberCount: 0, entries });
+        out.push({ _id: `report:${String(r._id)}`, source: 'public', guildId: '', raceAt: r.finishedAt, memberCount: 0, entries, appVerified: true });
     }
     return canonicalize(out);
 }
@@ -293,6 +334,14 @@ async function pushRatings() {
         peak: r.peak,
         placement: r.placement,
         placementRaces: engine.PLACEMENT_RACES,
+        scanRating: r.scanRating ?? null,
+        scanContribution: r.scanContribution ?? 0,
+        historicalRaces: r.historicalRaces ?? 0,
+        historicalWins: r.historicalWins ?? 0,
+        historicalPodiums: r.historicalPodiums ?? 0,
+        baseRating: r.baseRating ?? engine.START_RATING,
+        appDelta: r.appDelta ?? 0,
+        ratingVersion: r.ratingVersion ?? 1,
         rank: r.rank ?? null,
         challenger: !!r.challenger,
         lastRaceAt: r.lastRaceAt ? new Date(r.lastRaceAt).getTime() : null,
@@ -311,4 +360,4 @@ async function pushRatings() {
     return { pushed: drivers.length };
 }
 
-module.exports = { pullReports, buildRaces, pushRatings };
+module.exports = { pullReports, buildRaces, buildRacesFromReports, pushRatings };

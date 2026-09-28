@@ -188,11 +188,11 @@ test('FACEIT levels, rating floor and challenger (L10 + top 10)', () => {
     const names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'Z'];
     const races = [];
     for (let i = 0; i < 400; i++) {
-        races.push({ _id: `r${i}`, source: 'league', guildId: 'g', memberCount: 700, raceAt: new Date(Date.UTC(2025, 0, 1) + i * 864e5),
-            entries: names.map((n, k) => ({ key: n, name: n, position: k + 1 })) });
+        races.push({ _id: `r${i}`, source: 'league_madplus', appVerified: true, guildId: 'g', memberCount: 700, raceAt: new Date(Date.UTC(2025, 0, 1) + i * 864e5),
+            entries: names.map((n, k) => ({ key: `u:${n}`, userId: n, appRecorded: true, name: n, position: k + 1 })) });
     }
     const { players } = engine.recompute(races);
-    const a = players.get('A'), z = players.get('Z');
+    const a = players.get('u:A'), z = players.get('u:Z');
     assert.equal(a.rank, 1);
     assert.ok(z.rating >= engine.RATING_FLOOR);
     for (const p of players.values()) assert.equal(p.challenger, p.level >= 10 && p.rank <= engine.CHALLENGER_TOP);
