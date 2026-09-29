@@ -137,3 +137,22 @@ Run the rating regression suite with `node --test tests/rating-*.test.js`.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+### M25 archive backfill v2
+
+`events/m25History.js` walks complete message history and active/archived F1/F2
+season threads. `m25-history-v2` checkpoints live in `onetimejobs`; per-message
+provenance, extracted evidence, errors and review items live in `m25archiveaudits`.
+Every image and explicit race is considered. Points-only season tables cannot
+reconstruct race classifications and are reported as standings, not invented races.
+Downloads/API failures retry up to three passes. To retry after repairing evidence,
+clear the job's `doneAt` and set the affected audit's `attempts` to 0 and `status`
+to `failed`. No Discord messages are sent.
+
+Explicit series/season/round/session identifies duplicates; ambiguous legacy
+cross-posts and conflicting classifications require review. Legacy source records
+are preserved, marked ignored only after their full replacements are saved.
+Season-final surrogate records are retired only with a known expected round count
+and complete explicit race coverage. `doneAt` means evidence traversal finished,
+not that every historical race was recoverable; inspect `summary` and `coverage`.
+The 50% imported-history contribution and ten own-app placements remain unchanged.

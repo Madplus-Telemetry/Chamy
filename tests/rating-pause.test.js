@@ -94,7 +94,7 @@ test('the release switch restores the existing Discord results import', async ()
                 findOne: () => ({ lean: async () => null }),
                 updateOne: async (...args) => cursors.push(args),
             },
-            '../../models/RaceResult': { updateOne: async (...args) => saved.push(args) },
+            '../../models/RaceResult': { exists: async () => false, updateOne: async (...args) => saved.push(args) },
             '../../lib/gemma': { generate: async () => JSON.stringify({
                 isRaceResult: true, entries: [{ name: 'Alice' }, { name: 'Bob' }],
             }) },

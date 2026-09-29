@@ -180,6 +180,7 @@ async function ingestGuild(guild) {
             if (budget <= 0) break;
             lastId = msg.id;
             if (!looksLikeResult(msg)) continue;
+            if (await RaceResult.exists({ sourceMessageId: msg.id })) continue;
             budget--; scanned++;
 
             const parsed = await extract(msg).catch(err => { console.error('[RATING] extract:', err.message); return null; });

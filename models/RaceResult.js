@@ -25,6 +25,13 @@ const raceResultSchema = new Schema({
     track:       { type: String, default: '' },
     memberCount: { type: Number, default: 0 },
     entries:     { type: [entrySchema], default: [] },
+    sourceMessageId: String,
+    archiveJob: String,
+    evidenceHash: String,
+    archiveSeason: Number,
+    archiveRound: Number,
+    archiveType: String,
+    supersededByArchive: String,
     ignored:     { type: Boolean, default: false },   // elle haric tutmak icin
 }, { timestamps: true });
 
@@ -32,3 +39,4 @@ raceResultSchema.index({ messageId: 1 }, { unique: true, sparse: true });
 raceResultSchema.index({ raceAt: 1 });
 
 module.exports = model('RaceResult', raceResultSchema);
+

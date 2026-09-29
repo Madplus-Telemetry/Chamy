@@ -1,32 +1,11 @@
-// events/m25History.js
-// ───────────────────────────────────────────────────────────────────────────
-// TEK SEFERLIK: M25'in ana sampiyonalarinin (F1, F2, WEC) BUTUN sezonlarindaki
-// yaris sonuclarini rating'e yazar. Normal tarama kanal basina sadece son 60
-// mesaji okur; bu is kanallarin tum gecmisine iner.
-//
-// • Kanallar: #results, #f2-results, #wec-results, #old-results ve
-//   #past-f1-results / #past-f2-results forumlarinin butun basliklari.
-//   Kupa / Road To / RNG / Gold Cup / F1 2020 sim ve saralama kanallari yok.
-// • Yarida kesilmez: her mesajdan sonra ilerleme onetimejobs'a yazilir,
-//   redeploy olursa kaldigi mesajdan devam eder. Kayit messageId ile upsert.
-// • Forumlar eski sonuclarin tekrar paylasimi olabilir: ayni pist + ayni ilk
-//   6 surucu sirasi zaten varsa ikinci kez eklenmez.
-// • Kimlik: DriverAlias tablosu (identity.resolve).
-// • Bitince rating bastan hesaplanir ve lobiye (app) yollanir.
-// Isaret: onetimejobs { key: JOB_KEY }.
-// ───────────────────────────────────────────────────────────────────────────
-
-const mongoose     = require('mongoose');
+// Resumable M25 archive backfill. Failures remain visible and retryable.
+const mongoose = require('mongoose');
 const { ChannelType } = require('discord.js');
-const RaceResult   = require('../models/RaceResult');
-const ResultCursor = require('../models/ResultCursor');
-const { norm }     = require('../services/rating/identity');
-
-const JOB_KEY   = 'm25-history-v1';
+const RaceResult = require('../models/RaceResult');
+const archive = require('../services/rating/archive');
+const { isRatingEnabled } = require('../services/rating/config');
+const JOB_KEY = 'm25-history-v2';
 const M25_GUILD = '1264284618727886858';
-const GAP_MS    = 4000;   // Gemma istekleri arasi (429 gelirse gemma.js bekler)
-
-// Sira onemli: once asil kanallar, en son forum arsivleri (tekrarlar elensin).
 const CHANNELS = [
     { id: '1264656778025504868', label: 'F1 old-results' },
     { id: '1459634970258571545', label: 'F1 results' },
@@ -38,146 +17,170 @@ const FORUMS = [
     { id: '1464737634671919273', label: 'past-f2-results' },
 ];
 
+
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-const signature = (track, entries) =>
-    `${norm(track)}|${entries.slice(0, 6).map(e => e.key).join(',')}`;
-
-async function forumThreads(guild, forumId) {
-    const forum = await guild.channels.fetch(forumId).catch(() => null);
-    if (!forum || forum.type !== ChannelType.GuildForum) return [];
+async function forumThreads(guild, id) {
+    const forum = await guild.channels.fetch(id);
+    if (!forum || forum.type !== ChannelType.GuildForum) throw new Error(`Forum unavailable: ${id}`);
     const out = new Map();
-    const active = await forum.threads.fetchActive().catch(() => null);
-    for (const [, t] of active?.threads || []) if (t.parentId === forumId) out.set(t.id, t);
+    const active = await forum.threads.fetchActive();
+    for (const t of active.threads.values()) if (t.parentId === id) out.set(t.id, t);
     let before;
-    for (let page = 0; page < 20; page++) {
-        const arch = await forum.threads.fetchArchived({ limit: 100, before }).catch(() => null);
-        if (!arch?.threads?.size) break;
-        for (const [, t] of arch.threads) out.set(t.id, t);
-        if (!arch.hasMore) break;
-        before = [...arch.threads.values()].at(-1);
+    for (;;) {
+        const page = await forum.threads.fetchArchived({ limit: 100, ...(before ? { before } : {}) });
+        for (const t of page.threads.values()) out.set(t.id, t);
+        if (!page.hasMore) break;
+        const next = [...page.threads.values()].at(-1)?.archiveTimestamp;
+        if (!next || next === before) throw new Error(`Archived pagination stalled: ${id}`);
+        before = next;
     }
-    // Eski basliklar once
     return [...out.values()].sort((a, b) => a.createdTimestamp - b.createdTimestamp);
 }
-
 async function run(client) {
+    if (!isRatingEnabled() || !process.env.GEMINI_API_KEY) return;
     const jobs = mongoose.connection.collection('onetimejobs');
-    const state = (await jobs.findOne({ key: JOB_KEY })) || { key: JOB_KEY, progress: {} };
+    const audit = mongoose.connection.collection('m25archiveaudits');
+    const state = await jobs.findOne({ key: JOB_KEY }) || { progress: {} };
     if (state.doneAt) return;
-    state.progress ||= {};
-
-    const guild = client.guilds.cache.get(M25_GUILD) || await client.guilds.fetch(M25_GUILD).catch(() => null);
-    if (!guild) { console.error('[M25-HISTORY] guild not found'); return; }
-
+    const guild = await client.guilds.fetch(M25_GUILD);
     const ingest = require('../services/rating/ingest');
-    const { loadAliases } = require('../services/rating/identity');
-    const index   = await ingest.memberIndex(guild);
-    const aliases = await loadAliases(guild.id);
-
-    const existing = await RaceResult.find({ guildId: M25_GUILD }, { track: 1, entries: 1 }).lean();
-    const sigs = new Set(existing.map(r => signature(r.track, r.entries || [])));
-
-    const saveProgress = (id, patch) => {
-        state.progress[id] = { ...(state.progress[id] || {}), ...patch };
-        return jobs.updateOne({ key: JOB_KEY }, { $set: { [`progress.${id}`]: state.progress[id] } }, { upsert: true });
-    };
-
-    const targets = [];
+    const index = await ingest.memberIndex(guild);
+    const aliases = await require('../services/rating/identity').loadAliases(guild.id);
+    const targets = [], discoveryErrors = [];
     for (const c of CHANNELS) {
-        const ch = await guild.channels.fetch(c.id).catch(() => null);
-        if (ch) targets.push({ ch, label: c.label, cursor: true });
-        else console.error(`[M25-HISTORY] ${c.label}: no access`);
+        try { const ch = await guild.channels.fetch(c.id); if (!ch) throw new Error('No access'); targets.push({ ch, label: c.label }); }
+        catch (e) { discoveryErrors.push({ id: c.id, error: e.message }); }
     }
     for (const f of FORUMS) {
-        for (const t of await forumThreads(guild, f.id)) targets.push({ ch: t, label: `${f.label}/${t.name}`, cursor: false });
+        try { for (const ch of await forumThreads(guild, f.id)) targets.push({ ch, label: `${f.label}/${ch.name}` }); }
+        catch (e) { discoveryErrors.push({ id: f.id, error: e.message }); }
     }
-    console.log(`[M25-HISTORY] ${targets.length} channels/threads to read`);
-
-    let total = 0, added = 0, dupes = 0;
-    for (const { ch, label, cursor } of targets) {
-        const p = state.progress[ch.id] || {};
-        if (p.done) continue;
-
-        // Normal tarama bu noktadan sonrasini okusun; oncesi bu isin.
-        if (cursor && !p.started) {
-            const newest = (await ch.messages.fetch({ limit: 1 }).catch(() => null))?.first();
-            const cur = await ResultCursor.findOne({ channelId: ch.id }).lean();
-            if (newest && !cur?.lastMessageId) {
-                await ResultCursor.updateOne({ channelId: ch.id },
-                    { $set: { guildId: guild.id, lastMessageId: newest.id, scannedAt: new Date() } }, { upsert: true });
+    await jobs.updateOne({ key: JOB_KEY }, { $set: { startedAt: state.startedAt || new Date(), discoveryErrors, status: 'scanning', targetCount: targets.length } }, { upsert: true });
+    const progress = state.progress || {};
+    async function processMessage(msg, label) {
+        const key = `${JOB_KEY}:${msg.id}`;
+        const previous = await audit.findOne({ _id: key });
+        if (['imported', 'no_results', 'review'].includes(previous?.status)) return;
+        if ((previous?.attempts || 0) >= 3) return;
+        try {
+            const parsed = await archive.extractMessage(msg, label);
+            const records = [];
+            let issue = parsed.needsReview;
+            for (let i = 0; i < parsed.races.length; i++) {
+                const r = parsed.races[i];
+                const messageId = archive.raceIdentity(r, msg.id, i);
+                const entries = ingest.toEntries(r, index, aliases);
+                if (entries.length !== r.entries.length || new Set(entries.map(e => e.key)).size !== entries.length) { issue = true; continue; }
+                const evidenceHash = archive.evidenceHash(r);
+                // A pre-v2 race may lack round metadata. Flag a possible cross-post
+                // instead of awarding it twice or silently merging distinct races.
+                const candidates = await RaceResult.find({ guildId: guild.id, ignored: { $ne: true },
+                    messageId: { $ne: msg.id }, sourceMessageId: { $ne: msg.id },
+                    track: String(r.track || '').slice(0, 80), archiveJob: { $ne: JOB_KEY } }).lean();
+                if (candidates.some(old => JSON.stringify((old.entries || []).map(e => e.key)) === JSON.stringify(entries.map(e => e.key)))) { issue = true; continue; }
+                const existing = await RaceResult.findOne({ messageId }).lean();
+                if (existing && existing.evidenceHash !== evidenceHash) { issue = true; continue; }
+                const date = r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date) ? new Date(r.date) : null;
+                records.push({ messageId, source: 'league', guildId: guild.id, guildName: guild.name,
+                    channelId: msg.channelId, sourceMessageId: msg.id, archiveJob: JOB_KEY, evidenceHash,
+                    archiveSeason: r.season, archiveRound: r.round, archiveType: r.type,
+                    raceAt: date && Number.isFinite(+date) ? date : msg.createdAt,
+                    series: `M25 ${r.series || ''}${r.season ? ` S${r.season}` : ''}`.slice(0, 80),
+                    track: String(r.track || '').slice(0, 80), memberCount: guild.memberCount || 0, entries });
             }
-        }
-        await saveProgress(ch.id, { started: true, label });
-
-        let before = p.before || undefined;   // yeniden eskiye iner
-        let chAdded = 0;
-        for (;;) {
-            let batch;
-            try {
-                batch = await ch.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
-            } catch (err) {
-                console.error(`[M25-HISTORY] ${label}: fetch failed: ${err.message}`);
-                await sleep(5000);
-                batch = await ch.messages.fetch({ limit: 100, ...(before ? { before } : {}) }).catch(() => null);
-                if (!batch) break;
-            }
-            if (!batch.size) break;
-            const msgs = [...batch.values()].sort((a, b) => b.createdTimestamp - a.createdTimestamp);
-
-            for (const msg of msgs) {
-                before = msg.id;
-                if (!ingest.looksLikeResult(msg)) { continue; }
-                if (await RaceResult.exists({ messageId: msg.id })) { await saveProgress(ch.id, { before }); continue; }
-
-                total++;
-                const parsed = await ingest.extract(msg).catch(err => { console.error('[M25-HISTORY] extract:', err.message); return null; });
-                await sleep(GAP_MS);
-                if (parsed) {
-                    const entries = ingest.toEntries(parsed, index, aliases);
-                    const track = String(parsed.track || '').slice(0, 80);
-                    const sig = signature(track, entries);
-                    if (entries.length >= 2 && norm(track) && sigs.has(sig)) dupes++;
-                    else if (entries.length >= 2) {
-                        const res = await RaceResult.updateOne(
-                            { messageId: msg.id },
-                            { $setOnInsert: {
-                                source: 'league', guildId: guild.id, guildName: guild.name, channelId: ch.id,
-                                messageId: msg.id, raceAt: msg.createdAt, series: String(parsed.series || '').slice(0, 80),
-                                track, memberCount: guild.memberCount || 0, entries,
-                            } },
-                            { upsert: true },
-                        );
-                        if (res.upsertedCount) { added++; chAdded++; sigs.add(sig); }
-                    }
+            // Never replace a legacy record using a partial/ambiguous extraction.
+            if (!issue) {
+                const legacy = await RaceResult.findOne({ messageId: msg.id }).lean();
+                for (const record of records) {
+                    if (legacy?.ignored && !legacy?.supersededByArchive) record.ignored = true;
+                    await RaceResult.updateOne({ messageId: record.messageId }, { $setOnInsert: record }, { upsert: true });
                 }
-                await saveProgress(ch.id, { before });
+                if (records.length && legacy) await RaceResult.updateOne({ messageId: msg.id }, { $set: { ignored: true, supersededByArchive: JOB_KEY } });
             }
-            await saveProgress(ch.id, { before });
-            if (batch.size < 100) break;
+            await audit.updateOne({ _id: key }, { $set: { job: JOB_KEY, channelId: msg.channelId, messageId: msg.id, label,
+                status: issue ? 'review' : records.length ? 'imported' : 'no_results', races: parsed.races,
+                findings: parsed.findings, imported: issue ? 0 : records.length, updatedAt: new Date(), error: null }, $inc: { attempts: 1 } }, { upsert: true });
+        } catch (e) {
+            await audit.updateOne({ _id: key }, { $set: { job: JOB_KEY, channelId: msg.channelId, messageId: msg.id, label,
+                status: 'failed', error: e.message.slice(0, 500), updatedAt: new Date() }, $inc: { attempts: 1 } }, { upsert: true });
         }
-        await saveProgress(ch.id, { done: true, added: (p.added || 0) + chAdded });
-        console.log(`[M25-HISTORY] ${label}: +${chAdded} races`);
+        await sleep(4000);
     }
-
-    let recomputed = null;
-    try {
-        recomputed = await ingest.recomputeAll();
-        await require('../services/rating/madplus').pushRatings();
-    } catch (err) { console.error('[M25-HISTORY] recompute/push:', err.message); }
-
-    await jobs.updateOne({ key: JOB_KEY }, { $set: { doneAt: new Date(), checked: total, added, dupes, recomputed } }, { upsert: true });
-    console.log(`[M25-HISTORY] done: ${total} checked, ${added} races added, ${dupes} duplicates skipped`);
+    for (const { ch, label } of targets) {
+        if (!isRatingEnabled()) return;
+        const p = progress[ch.id] || {};
+        try {
+            const failures = await audit.find({ job: JOB_KEY, channelId: ch.id, status: 'failed', attempts: { $lt: 3 } }).toArray();
+            for (const failure of failures) await processMessage(await ch.messages.fetch(failure.messageId), label);
+            if (p.done) continue;
+            let before = p.before;
+            for (;;) {
+                if (!isRatingEnabled()) return;
+                const batch = await ch.messages.fetch({ limit: 100, ...(before ? { before } : {}) });
+                const messages = [...batch.values()].sort((a, b) => b.createdTimestamp - a.createdTimestamp);
+                for (const msg of messages) {
+                    if (ingest.looksLikeResult(msg)) await processMessage(msg, label);
+                    before = msg.id;
+                    await jobs.updateOne({ key: JOB_KEY }, { $set: { [`progress.${ch.id}`]: { label, before, done: false }, updatedAt: new Date() } });
+                }
+                if (batch.size < 100) break;
+            }
+            progress[ch.id] = { label, before, done: true };
+            await jobs.updateOne({ key: JOB_KEY }, { $set: { [`progress.${ch.id}`]: progress[ch.id] } });
+            console.log(`[M25-HISTORY-V2] scanned ${label}`);
+        } catch (e) {
+            progress[ch.id] = { ...(progress[ch.id] || {}), done: false, error: e.message };
+            await jobs.updateOne({ key: JOB_KEY }, { $set: { [`progress.${ch.id}.error`]: e.message } });
+        }
+    }
+    const rows = await audit.find({ job: JOB_KEY }).toArray();
+    const summary = {};
+    for (const row of rows) {
+        const s = summary[row.channelId] ||= { label: row.label, messages: 0, imported: 0, review: 0, failed: 0, standings: 0 };
+        s.messages++; s.imported += row.imported || 0;
+        if (row.status === 'review') s.review++;
+        if (row.status === 'failed') s.failed++;
+        if (row.findings?.some(f => f.kind === 'standings')) s.standings++;
+    }
+    const retryable = rows.some(r => r.status === 'failed' && r.attempts < 3);
+    const fetchedAll = !discoveryErrors.length && targets.every(t => progress[t.ch.id]?.done);
+    // Only retire a season surrogate when explicit expected round count and all
+    // its race rounds are present. Missing count means coverage is unknown.
+    const coverage = {};
+    for (const row of rows) {
+        const match = row.label?.match(/past-(f[12])-results\/.*?(?:season|s)\s*(\d+)/i);
+        if (!match) continue;
+        const key = `${match[1].toUpperCase()}:S${match[2]}`;
+        const c = coverage[key] ||= { series: match[1].toUpperCase(), season: Number(match[2]), expected: [], rounds: [], blocked: false };
+        if (['review', 'failed'].includes(row.status)) c.blocked = true;
+        for (const f of row.findings || []) if (f.expectedRounds) c.expected.push(f.expectedRounds);
+        if (row.status === 'imported') for (const r of row.races || [])
+            if (r.type === 'race' && r.season === c.season && r.series === c.series) c.rounds.push(r.round);
+    }
+    for (const c of Object.values(coverage)) {
+        const expected = [...new Set(c.expected)];
+        c.expected = expected.length === 1 ? expected[0] : null;
+        c.rounds = [...new Set(c.rounds)].sort((a, b) => a - b);
+        c.complete = fetchedAll && !c.blocked && archive.completeSeason(c.rounds, c.expected);
+        c.missing = c.expected ? Array.from({ length: c.expected }, (_, i) => i + 1).filter(n => !c.rounds.includes(n)) : null;
+        if (c.complete) await RaceResult.updateMany({ guildId: M25_GUILD, track: 'Season standings', series: `M25 ${c.series} S${c.season} WDC final` }, { $set: { ignored: true, supersededByArchive: JOB_KEY } });
+    }
+    const recomputed = await ingest.recomputeAll();
+    await require('../services/rating/madplus').pushRatings();
+    const patch = { summary, coverage, recomputed, updatedAt: new Date(), status: fetchedAll && !retryable ? 'scanned_with_coverage_report' : 'retry_pending' };
+    // doneAt means all accessible evidence scanned; NOT all historical races reconstructed.
+    if (fetchedAll && !retryable) patch.doneAt = new Date();
+    await jobs.updateOne({ key: JOB_KEY }, { $set: patch });
+    console.log(`[M25-HISTORY-V2] ${patch.status}: ${rows.length} source messages`);
 }
-
-module.exports = (client) => {
-    const start = () => {
-        setTimeout(() => {
-            const go = () => run(client).catch(err => console.error('[M25-HISTORY] failed:', err.message));
-            if (mongoose.connection.readyState === 1) go();
-            else mongoose.connection.once('connected', go);
-        }, 90 * 1000).unref?.();
+module.exports = client => {
+    let running = false;
+    const go = async () => {
+        if (running || mongoose.connection.readyState !== 1) return;
+        running = true;
+        try { await run(client); } catch (e) { console.error('[M25-HISTORY-V2]', e.message); }
+        finally { running = false; }
     };
-    if (client.isReady?.()) start();
-    else client.once('ready', start);
+    const start = () => { setTimeout(go, 90000).unref?.(); setInterval(go, 10 * 60 * 1000).unref?.(); };
+    if (client.isReady?.()) start(); else client.once('ready', start);
 };
