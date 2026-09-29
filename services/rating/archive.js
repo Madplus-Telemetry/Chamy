@@ -46,13 +46,14 @@ async function extractMessage(msg, context, deps = {}) {
         const parsed = JSON.parse(raw.slice(first, last + 1));
         if (!['results', 'standings', 'other', 'unreadable'].includes(parsed.kind) || !Array.isArray(parsed.races)) throw new Error('Invalid archive response');
         let rejected = 0;
+        const rejectedEvidence = [];
         for (const race of parsed.races) {
-            if (!validateRace(race)) { rejected++; continue; }
+            if (!validateRace(race)) { rejected++; rejectedEvidence.push(race); continue; }
             const hash = digest([race.series, race.season, race.round, race.type, evidenceHash(race)]);
             if (seen.has(hash)) continue;
             seen.add(hash); races.push({ ...race, evidenceIndex: i });
         }
-        findings.push({ image: i, kind: parsed.kind, reason: String(parsed.reason || '').slice(0, 500), rejected,
+        findings.push({ image: i, kind: parsed.kind, reason: String(parsed.reason || '').slice(0, 500), rejected, rejectedEvidence,
             expectedRounds: Number.isInteger(parsed.expectedRounds) && parsed.expectedRounds > 0 ? parsed.expectedRounds : null });
     }
     return { races, findings, needsReview: findings.some(f => f.kind === 'unreadable' || f.rejected || f.kind === 'results' && !races.length) };

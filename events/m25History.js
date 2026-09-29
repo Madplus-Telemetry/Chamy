@@ -55,6 +55,9 @@ async function run(client) {
         try { for (const ch of await forumThreads(guild, f.id)) targets.push({ ch, label: `${f.label}/${ch.name}` }); }
         catch (e) { discoveryErrors.push({ id: f.id, error: e.message }); }
     }
+    // Old season archives are the missing evidence; visit them before re-reading
+    // current result feeds already covered by the live scanner.
+    targets.sort((a, b) => Number(b.ch.isThread?.() || false) - Number(a.ch.isThread?.() || false));
     await jobs.updateOne({ key: JOB_KEY }, { $set: { startedAt: state.startedAt || new Date(), discoveryErrors, status: 'scanning', targetCount: targets.length } }, { upsert: true });
     const progress = state.progress || {};
     async function processMessage(msg, label) {
