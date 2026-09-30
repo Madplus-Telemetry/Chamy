@@ -220,11 +220,22 @@ function buildRacesFromReports(leagueRaces, reports, links, now = Date.now()) {
         if (now - new Date(r.finishedAt).getTime() < PUBLIC_GRACE_MS) continue;
         const appUsers = new Set([...g.owners.values()].filter(o => !o.conflict).map(o => o.userId));
         const finished = [], dnf = [];
-        const ordered = [...r.entries].sort((a, b) => (a.position ?? 1e9) - (b.position ?? 1e9));
+        // Oyun bazen sonucu siralama yazilmadan yollar (hepsi position=null). Kimse
+        // siralanmadiysa ve en az 2 kisinin gercek bir en iyi turu varsa, bitirenleri
+        // en iyi tura gore sirala; aksi halde eskisi gibi null = DNF. Siralananlar
+        // varken null olanlar yine DNF, ama kendi aralarinda tura gore dizilir.
+        const classified = r.entries.some(e => e.position != null);
+        const lapRanked = !classified && r.entries.filter(e => lapSeconds(e.bestLap) != null).length >= 2;
+        const ordered = [...r.entries].sort((a, b) => {
+            const pa = a.position ?? 1e9, pb = b.position ?? 1e9;
+            if (pa !== pb) return pa - pb;
+            return (lapSeconds(a.bestLap) ?? 1e9) - (lapSeconds(b.bestLap) ?? 1e9);
+        });
         for (const e of ordered) {
             const k = identityInReport(e, g);
             if (!k) continue;
-            (e.position == null ? dnf : finished).push({ key: k.key, userId: k.userId, name: e.nick, dnf: e.position == null,
+            const isDnf = e.position == null && !(lapRanked && lapSeconds(e.bestLap) != null);
+            (isDnf ? dnf : finished).push({ key: k.key, userId: k.userId, name: e.nick, dnf: isDnf,
                 appRecorded: !!k.userId && appUsers.has(k.userId) });
         }
         const entries = [...finished, ...dnf].map((e, i) => ({ ...e, position: i + 1 }));
