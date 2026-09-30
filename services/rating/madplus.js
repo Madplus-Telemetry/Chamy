@@ -41,6 +41,14 @@ const norm = s => String(s || '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]+/gu, '');
 
+// "01:20.123" / "1:20.1" / "80.5" -> saniye; bos, 0 veya gecersiz -> null
+function lapSeconds(s) {
+    const m = /^\s*(?:(\d+):)?(\d+(?:\.\d+)?)\s*$/.exec(String(s || ''));
+    if (!m) return null;
+    const t = (m[1] ? Number(m[1]) * 60 : 0) + Number(m[2]);
+    return t > 0 ? t : null;
+}
+
 function lobby() {
     const base = (process.env.MADPLUS_LOBBY_URL || '').trim()
         .replace(/^wss:\/\//i, 'https://').replace(/^ws:\/\//i, 'http://').replace(/\/+$/, '');
