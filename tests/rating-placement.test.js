@@ -160,3 +160,27 @@ test('public grace period and ignored results are still respected', () => {
     const r = { ...race(0, true), ignored: true };
     assert.equal(engine.recompute([r]).players.size, 0);
 });
+
+test('unclassified results rank by best lap; one lap alone is not enough', () => {
+    const lapReport = (laps, positions = null) => {
+        const r = report(0);
+        r.entries = r.entries.slice(0, 3).map((e, i) => ({ ...e, position: positions ? positions[i] : null, bestLap: laps[i] }));
+        return r;
+    };
+    // nobody classified, real laps -> ranked by lap, nobody is DNF
+    const a = buildRacesFromReports([], [lapReport(['01:22.00', '01:20.50', '01:21.00'])], [], start + day)[0];
+    assert.deepEqual(plain(a.entries.map(e => e.name)), ['Bruno', 'Cem', 'Aster']);
+    assert.ok(a.entries.every(e => !e.dnf));
+    // only one real lap -> old behaviour, everyone DNF
+    const b = buildRacesFromReports([], [lapReport(['01:22.00', '00:00.000', ''])], [], start + day)[0];
+    assert.ok(b.entries.every(e => e.dnf));
+    // classified drivers stay ahead; null ones are DNF, ordered by lap
+    const c = buildRacesFromReports([], [lapReport(['01:30.00', '01:20.00', '01:19.00'], [1, null, null])], [], start + day)[0];
+    assert.deepEqual(plain(c.entries.map(e => e.name)), ['Aster', 'Cem', 'Bruno']);
+    assert.deepEqual(plain(c.entries.map(e => e.dnf)), [false, true, true]);
+});
+
+test('public race counts 30 minutes after the finish', () => {
+    assert.equal(buildRacesFromReports([], [report(0)], [], start + 20 * 60000).length, 0);
+    assert.equal(buildRacesFromReports([], [report(0)], [], start + 31 * 60000).length, 1);
+});
