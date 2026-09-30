@@ -23,7 +23,10 @@ const engine       = require('./engine');
 const { isRatingEnabled } = require('./config');
 
 const CURSOR_ID        = 'lobby:race-reports';
-const PUBLIC_GRACE_MS  = 6 * 60 * 60 * 1000;
+// Kisaltildi (6 saat -> 30 dk): rating her calistirmada bastan hesaplandigi icin,
+// rapor sonradan bir lig sonucuyla eslesirse public yaris kendiliginden 'league_madplus'a
+// doner; cift sayim olmaz. Uzun bekleme sadece profilin gec dolmasina yariyordu.
+const PUBLIC_GRACE_MS  = 30 * 60 * 1000;
 const MATCH_BEFORE_MS  = 8 * 60 * 60 * 1000;  // sonuc kanala yaristan en gec 8 saat sonra
 const MATCH_AFTER_MS   = 60 * 60 * 1000;
 const REPORT_DUPLICATE_MS = 2 * 60 * 1000;
