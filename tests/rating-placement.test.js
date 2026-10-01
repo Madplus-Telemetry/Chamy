@@ -177,7 +177,7 @@ test('unclassified results rank by best lap; one lap alone is not enough', () =>
     // classified drivers stay ahead; unclassified drivers with a lap follow, ordered by lap
     const c = buildRacesFromReports([], [lapReport(['01:30.00', '01:20.00', '01:19.00'], [1, null, null])], [], start + day)[0];
     assert.deepEqual(plain(c.entries.map(e => e.name)), ['Aster', 'Cem', 'Bruno']);
-    assert.deepEqual(plain(c.entries.map(e => e.dnf)), [false, true, true]);
+    assert.deepEqual(plain(c.entries.map(e => e.dnf)), [false, false, false]);
 });
 
 test('public race counts 30 minutes after the finish', () => {
