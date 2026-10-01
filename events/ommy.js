@@ -2240,6 +2240,16 @@ async function executeTool(name, args, client, guildId, userPrompt, message) {
             };
         }
 
+        case 'set_server_league': {
+            const allowed = perms.isOwner(message.author.id) ||
+                message?.member?.permissions.has(PermissionsBitField.Flags.ManageGuild) ||
+                message?.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+            if (!allowed) return { error: 'permission_denied', message: 'You need the Manage Server permission to do that.' };
+            const r = await serverProfile.setLeagueStatus(guildId, { name: args.name, status: args.status, format: args.format });
+            if (r.success) require('../services/leagueSync').pushAll(message.client).catch(err => console.error('[LEAGUE SYNC]', err.message));
+            return r;
+        }
+
         case 'refresh_server_profile': {
             if (!perms.isOwner(message.author.id)) {
                 return { error: 'permission_denied', message: 'This tool is Commander-only.' };
