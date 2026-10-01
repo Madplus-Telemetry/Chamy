@@ -161,7 +161,7 @@ test('public grace period and ignored results are still respected', () => {
     assert.equal(engine.recompute([r]).players.size, 0);
 });
 
-test('unclassified results rank by best lap; one lap alone is not enough', () => {
+test('unclassified drivers with a real lap are not DNF; no lap means DNF', () => {
     const lapReport = (laps, positions = null) => {
         const r = report(0);
         r.entries = r.entries.slice(0, 3).map((e, i) => ({ ...e, position: positions ? positions[i] : null, bestLap: laps[i] }));
