@@ -46,7 +46,7 @@ function lapSeconds(s) {
     const m = /^\s*(?:(\d+):)?(\d+(?:\.\d+)?)\s*$/.exec(String(s || ''));
     if (!m) return null;
     const t = (m[1] ? Number(m[1]) * 60 : 0) + Number(m[2]);
-    return t > 0 ? t : null;
+    return t > 0 && t < 900 ? t : null;
 }
 
 function lobby() {
