@@ -14,6 +14,8 @@ const trustCollector = require('../lib/trust/collector');
 const { runToneScan } = require('../lib/trust/toneScan');
 const guards = require('../lib/antiraid/guards');
 const lockdown = require('../lib/antiraid/lockdown');
+const msgBuffer = require('../lib/antiraid/msgBuffer');
+const globalRequest = require('../lib/antiraid/globalRequest');
 
 // Nuke sayilan audit log aksiyonlari -> okunabilir etiket.
 const DESTRUCTIVE = {
@@ -32,11 +34,12 @@ module.exports = (client) => {
     // --- Join hot path + global ban ---
     client.on('guildMemberAdd', async (member) => {
         try {
-            // Global ban: kesin raid hesabi her acik-korumali sunucuda aninda atilir.
+            // Global ban: Chamy'nin kendi raid karariyla (2+ sunucuda raid) listeye giren
+            // hesap, korumasi acik her sunucuda girer girmez sormadan atilir.
             const globals = await configStore.globalBanSet();
             if (globals.has(member.id)) {
                 const cfg = await configStore.get(member.guild.id);
-                // Bot sahibinin elle ekledigi hesaplar antiraid kapali olsa da banlanir;
+                // Eski (elle eklenmis) kayitlar antiraid kapali olsa da banlanir;
                 // otomatik girenler sadece antiraid'i acik sunucuda.
                 if ((cfg.enabled || configStore.isManualGlobalBan(member.id)) &&
                     member.guild.members.me?.permissions.has(PermissionsBitField.Flags.BanMembers)) {
@@ -46,6 +49,10 @@ module.exports = (client) => {
                     return;
                 }
             }
+            // Baska bir sunucunun admini bu hesap icin global ban istedi ve bu sunucuya
+            // henuz sorulmadiysa: moderator kanalina "banlayalim mi" diye sor.
+            globalRequest.onMemberJoin(member).catch(err =>
+                console.error('[GLOBALBAN] join request:', err.message));
             await engine.onMemberJoin(member);
         } catch (err) {
             console.error('[ANTIRAID] guildMemberAdd:', err.message);
@@ -60,6 +67,8 @@ module.exports = (client) => {
                 console.error('[ANTIRAID] webhook:', err.message));
             return;
         }
+        // Son 10 mesaj (sadece bellekte): global ban isteginde moderatore gosterilir.
+        try { msgBuffer.record(message); } catch { /* yut */ }
         spam.onMessage(message).catch(err =>
             console.error('[ANTIRAID] spam:', err.message));
         try {
@@ -129,23 +138,6 @@ module.exports = (client) => {
         // Snapshot: acilistan 1 dk sonra, sonra saatte bir.
         setTimeout(snapshotEnabledGuilds, 60_000);
         setInterval(snapshotEnabledGuilds, 60 * 60 * 1000);
-        // Bot sahibinin elle ekledigi global ban'lar: acilistan 45 sn sonra, sonra 6 saatte bir
-        // Chamy'nin bulundugu butun sunuculara uygula (hesap sunucuda olmasa da ID ile banlanir).
-        const sweepGlobalBans = async () => {
-            try {
-                const GlobalBan = require('../models/GlobalBan');
-                const globalban = require('../lib/antiraid/globalban');
-                const rows = await GlobalBan.find({ addedBy: { $ne: 'auto' } }).lean();
-                for (const row of rows) {
-                    const r = await globalban.banEverywhere(client, row.userId, row.reason);
-                    if (r.banned) console.log(`[GLOBALBAN] ${row.userId}: banned in ${r.banned} server(s)`);
-                }
-            } catch (err) {
-                console.error('[GLOBALBAN] sweep failed:', err.message);
-            }
-        };
-        setTimeout(sweepGlobalBans, 45_000);
-        setInterval(sweepGlobalBans, 6 * 60 * 60 * 1000);
         // Trust sayaclarini dakikada bir Mongo'ya yaz.
         setInterval(() => trustCollector.flush(), 60_000);
         // Gunluk ton taramasi (saat kontrolu 10 dk'da bir).
