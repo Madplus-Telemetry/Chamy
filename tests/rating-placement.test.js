@@ -11,7 +11,7 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../services/rating/madp
     module: mod, exports: mod.exports,
     require: name => name === './engine' ? engine : {},
 });
-const { buildRacesFromReports } = mod.exports;
+const { buildRacesFromReports, cleanEntry } = mod.exports;
 const ids = Array.from({ length: 12 }, (_, i) => String(100000000000000001n + BigInt(i)));
 const names = ['Aster', 'Bruno', 'Cem', 'Deniz', 'Efe', 'Firat', 'Gizem', 'Hugo', 'Iris', 'Jules', 'Kaan', 'Luna'];
 const key = i => `u:${ids[i]}`;
