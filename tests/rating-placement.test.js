@@ -76,9 +76,9 @@ test('ninth app race stays unranked; tenth unlocks; full app deltas add to the h
     assert.deepEqual(plain(engine.recompute(all).players.get(key(0))), plain(ten));
 });
 
-test('app-only newcomers retain the 1000 start and poor performance loses points', () => {
+test('app-only newcomers open at 500 (same scale as imported drivers) and poor performance loses points', () => {
     const p = engine.recompute([race(0, true)]).players.get(key(11));
-    assert.equal(p.baseRating, 1000);
+    assert.equal(p.baseRating, 500);
     assert.equal(p.scanContribution, 0);
     assert.equal(p.scanRating, null);
     assert.equal(p.historicalRaces, 0);
