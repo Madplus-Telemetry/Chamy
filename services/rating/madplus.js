@@ -56,8 +56,15 @@ function lobby() {
     return base && key ? { base, key } : null;
 }
 
+// Oyunun sonuc listesindeki "f" degeri 0-TABANLIDIR: kazanan 0, ikinci 1, ... Henuz
+// bitirmemisler Int.MAX_VALUE (uygulama bunu null yollar). Burada ham deger saklanir
+// (0 dahil); gercek yer buildRacesFromReports icinde truePlaces() ile +1 yapilir.
+// Eskiden 0 null'a cevriliyordu: kazanan "siralanmamis" sayilip siralananlarin ARKASINA
+// dusuyordu, diger herkes de bir yer iyi gorunuyordu.
 function cleanEntry(e) {
-    const position = Number.isFinite(+e?.position) && +e.position > 0 ? Math.floor(+e.position) : null;
+    const raw = e?.position;
+    const position = raw === null || raw === undefined || raw === '' ? null
+        : Number.isFinite(+raw) && +raw >= 0 && +raw < 1000 ? Math.floor(+raw) : null; // MAX_VALUE vb. -> null
     return {
         position,
         actorNr:    Number.isFinite(+e?.actorNr) ? Math.floor(+e.actorNr) : 0,
