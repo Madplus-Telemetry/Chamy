@@ -385,7 +385,7 @@ async function pushRatings() {
         historicalRaces: r.historicalRaces ?? 0,
         historicalWins: r.historicalWins ?? 0,
         historicalPodiums: r.historicalPodiums ?? 0,
-        baseRating: r.baseRating ?? engine.START_RATING,
+        baseRating: r.baseRating ?? engine.OPENING_RATING,
         appDelta: r.appDelta ?? 0,
         ratingVersion: r.ratingVersion ?? 1,
         rank: r.rank ?? null,
