@@ -66,6 +66,8 @@ const serverProfileSchema = new Schema({
         times:   { type: [String], default: [] },
     },
     leagues:   { type: [leagueSchema],   default: [] },
+    // Yonetici elle duzelttiyse AI/otomatik yenileme ezmez. status: active|upcoming|finished|removed
+    leagueOverrides: { type: [leagueSchema], default: [] },
     calendar:  { type: [eventSchema],    default: [] },
     standings: { type: [standingSchema], default: [] },
     notes:     { type: [String],         default: [] },
