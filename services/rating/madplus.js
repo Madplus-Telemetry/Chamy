@@ -406,4 +406,4 @@ async function pushRatings() {
     return { pushed: drivers.length };
 }
 
-module.exports = { pullReports, buildRaces, buildRacesFromReports, pushRatings };
+module.exports = { pullReports, buildRaces, buildRacesFromReports, pushRatings, cleanEntry, truePlaces };
