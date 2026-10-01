@@ -184,3 +184,40 @@ test('public race counts 30 minutes after the finish', () => {
     assert.equal(buildRacesFromReports([], [report(0)], [], start + 20 * 60000).length, 0);
     assert.equal(buildRacesFromReports([], [report(0)], [], start + 31 * 60000).length, 1);
 });
+
+test('game positions are 0-based: the winner (f=0) is first, everyone else keeps their place', () => {
+    const mk = (positions, laps = ['01:20.00', '01:21.00', '01:22.00', '01:23.00']) => {
+        const r = report(0);
+        r.entries = r.entries.slice(0, 4).map((e, i) => ({ ...e, position: positions[i], bestLap: laps[i] }));
+        return r;
+    };
+    const run = r => buildRacesFromReports([], [r], [], start + day)[0].entries;
+    const order = es => plain(es.map(e => e.name));
+    const places = es => plain(es.map(e => e.position));
+    // new reports keep the raw 0 (cleanEntry no longer drops it)
+    assert.equal(cleanEntry({ position: 0 }).position, 0);
+    assert.equal(cleanEntry({ position: null }).position, null);
+    assert.equal(cleanEntry({ position: 2147483647 }).position, null); // 'still racing' marker
+    assert.deepEqual(order(run(mk([0, 1, 2, 3]))), ['Aster', 'Bruno', 'Cem', 'Deniz']);
+    assert.deepEqual(places(run(mk([0, 1, 2, 3]))), [1, 2, 3, 4]);
+    // old reports stored the winner's 0 as null: [null, 1, 2, 3] is the same race, not "winner last"
+    assert.deepEqual(order(run(mk([null, 1, 2, 3]))), ['Aster', 'Bruno', 'Cem', 'Deniz']);
+    assert.deepEqual(places(run(mk([null, 1, 2, 3]))), [1, 2, 3, 4]);
+    // early snapshot: only the leader has crossed the line
+    const early = run(mk([0, null, null, null], ['01:30.00', '01:19.00', '01:18.00', '01:25.00']));
+    assert.deepEqual(order(early), ['Aster', 'Cem', 'Bruno', 'Deniz']);
+    // nobody classified yet (old report, all null): untouched, ordered by lap
+    assert.deepEqual(order(run(mk([null, null, null, null], ['01:22.00', '01:20.00', '01:21.00', '01:23.00']))),
+        ['Bruno', 'Cem', 'Aster', 'Deniz']);
+    // reports that already hold real places (1-based, no zero) are left alone
+    assert.deepEqual(order(run(mk([1, 2, 3, 4]))), ['Aster', 'Bruno', 'Cem', 'Deniz']);
+});
+
+test('the same race from an old and a new app version is still one race', () => {
+    const base = report(0, 0);
+    const oldR = { ...base, _id: 'old', entries: base.entries.slice(0, 4).map((e, i) => ({ ...e, position: i === 0 ? null : i })) };
+    const newR = { ...base, _id: 'new', reporterDiscordId: ids[1], finishedAt: new Date(start + 1000),
+        entries: base.entries.slice(0, 4).map((e, i) => ({ ...e, position: i, local: i === 1 })) };
+    const races = buildRacesFromReports([], [oldR, newR], [], start + day);
+    assert.equal(races.length, 1);
+});
