@@ -1281,6 +1281,19 @@ const MOD_TOOL_DECLARATIONS = [
             },
             required: ['seconds']
         }
+    },
+    {
+        name:        'set_server_league',
+        description: "Fix THIS server's championship/series list shown in the Mad+ app (Leagues page). The list is auto-detected and can be wrong, e.g. a closed series shown as Active. Requires Manage Server (or Commander). Triggers: \"F3 is finished\", \"mark Porsche Cup as closed\", \"F3'ü bitti yap\", \"şu ligi listeden kaldır\". Status: active, upcoming, finished, or removed (hide it from the list). The change sticks across automatic profile refreshes.",
+        parameters: {
+            type: 'object',
+            properties: {
+                name:   { type: 'string', description: 'Championship/series name as shown in the list, e.g. "F3" or "Porsche Cup".' },
+                status: { type: 'string', enum: ['active', 'upcoming', 'finished', 'removed'], description: 'New status. "removed" hides it from the list.' },
+                format: { type: 'string', description: 'Optional short description, e.g. "Formula" or "GT". Only if the user gives one.' }
+            },
+            required: ['name', 'status']
+        }
     }
 ];
 
