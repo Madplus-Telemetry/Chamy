@@ -36,7 +36,9 @@ module.exports = (client) => {
             const globals = await configStore.globalBanSet();
             if (globals.has(member.id)) {
                 const cfg = await configStore.get(member.guild.id);
-                if (cfg.enabled &&
+                // Bot sahibinin elle ekledigi hesaplar antiraid kapali olsa da banlanir;
+                // otomatik girenler sadece antiraid'i acik sunucuda.
+                if ((cfg.enabled || configStore.isManualGlobalBan(member.id)) &&
                     member.guild.members.me?.permissions.has(PermissionsBitField.Flags.BanMembers)) {
                     await member.ban({ reason: '[Chamy Antiraid] Known raid account (global ban)' })
                         .catch(() => {});
