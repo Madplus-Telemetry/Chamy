@@ -171,10 +171,10 @@ test('unclassified results rank by best lap; one lap alone is not enough', () =>
     const a = buildRacesFromReports([], [lapReport(['01:22.00', '01:20.50', '01:21.00'])], [], start + day)[0];
     assert.deepEqual(plain(a.entries.map(e => e.name)), ['Bruno', 'Cem', 'Aster']);
     assert.ok(a.entries.every(e => !e.dnf));
-    // only one real lap -> old behaviour, everyone DNF
-    const b = buildRacesFromReports([], [lapReport(['01:22.00', '00:00.000', ''])], [], start + day)[0];
-    assert.ok(b.entries.every(e => e.dnf));
-    // classified drivers stay ahead; null ones are DNF, ordered by lap
+    // only drivers with a real lap count as finished; 00:00.000 / empty / absurd laps are DNF
+    const b = buildRacesFromReports([], [lapReport(['01:22.00', '00:00.000', '31:23.64'])], [], start + day)[0];
+    assert.deepEqual(plain(b.entries.map(e => e.dnf)), [false, true, true]);
+    // classified drivers stay ahead; unclassified drivers with a lap follow, ordered by lap
     const c = buildRacesFromReports([], [lapReport(['01:30.00', '01:20.00', '01:19.00'], [1, null, null])], [], start + day)[0];
     assert.deepEqual(plain(c.entries.map(e => e.name)), ['Aster', 'Cem', 'Bruno']);
     assert.deepEqual(plain(c.entries.map(e => e.dnf)), [false, true, true]);
