@@ -129,6 +129,23 @@ module.exports = (client) => {
         // Snapshot: acilistan 1 dk sonra, sonra saatte bir.
         setTimeout(snapshotEnabledGuilds, 60_000);
         setInterval(snapshotEnabledGuilds, 60 * 60 * 1000);
+        // Bot sahibinin elle ekledigi global ban'lar: acilistan 45 sn sonra, sonra 6 saatte bir
+        // Chamy'nin bulundugu butun sunuculara uygula (hesap sunucuda olmasa da ID ile banlanir).
+        const sweepGlobalBans = async () => {
+            try {
+                const GlobalBan = require('../models/GlobalBan');
+                const globalban = require('../lib/antiraid/globalban');
+                const rows = await GlobalBan.find({ addedBy: { $ne: 'auto' } }).lean();
+                for (const row of rows) {
+                    const r = await globalban.banEverywhere(client, row.userId, row.reason);
+                    if (r.banned) console.log(`[GLOBALBAN] ${row.userId}: banned in ${r.banned} server(s)`);
+                }
+            } catch (err) {
+                console.error('[GLOBALBAN] sweep failed:', err.message);
+            }
+        };
+        setTimeout(sweepGlobalBans, 45_000);
+        setInterval(sweepGlobalBans, 6 * 60 * 60 * 1000);
         // Trust sayaclarini dakikada bir Mongo'ya yaz.
         setInterval(() => trustCollector.flush(), 60_000);
         // Gunluk ton taramasi (saat kontrolu 10 dk'da bir).
