@@ -5,7 +5,10 @@
 // v2: imported history is replayed separately. Half its TOTAL rating becomes
 // the base (2034 -> 1017), then own Mad+ race deltas are added at full weight.
 // Only 10 own app reports complete placement; scans never grant a rank.
-// Without imported history the existing 1000-point start is retained.
+// Drivers with no imported history open at the SAME scale as everyone else:
+// OPENING_RATING = START_RATING * SCAN_CREDIT (1000 * 0.5 = 500), i.e. exactly what
+// an average imported driver gets. (Used to be a flat 1000, which put a newcomer
+// 500 points above a driver with a short or weak league history.)
 //
 // Yaris basina degisim (surucu i):
 //   delta_i = K * kMult_i * W * Σ_j damp_ij * (S_ij - E_ij) / (N - 1)
@@ -37,6 +40,7 @@
 
 const START_RATING            = 1000;
 const SCAN_CREDIT             = 0.5;
+const OPENING_RATING          = START_RATING * SCAN_CREDIT;
 const K_BASE                  = 100;
 const ELO_SCALE               = 1500;
 const RATING_FLOOR            = 100;
@@ -115,10 +119,10 @@ function leaguePrestige(race, players, guildActivity) {
     };
 }
 
-function newPlayer(entry) {
+function newPlayer(entry, opening = START_RATING) {
     return {
         key: entry.key, userId: entry.userId || null, name: entry.name || '',
-        rating: START_RATING, races: 0, wins: 0, podiums: 0, peak: START_RATING,
+        rating: opening, races: 0, wins: 0, podiums: 0, peak: opening,
         history: [], lastRaceAt: null,
     };
 }
@@ -148,7 +152,7 @@ function replay(races, players = new Map(), appMode = false) {
         if (entries.length < 2) continue;
 
         for (const e of entries) {
-            if (!players.has(e.key)) players.set(e.key, newPlayer(e));
+            if (!players.has(e.key)) players.set(e.key, newPlayer(e, appMode ? OPENING_RATING : START_RATING));
             const p = players.get(e.key);
             if (e.userId && !p.userId) p.userId = e.userId;
             if (e.name) p.name = e.name;
@@ -260,7 +264,7 @@ function recompute(races) {
         }
         p.scanRating ??= null;
         p.scanContribution ??= 0;
-        p.baseRating ??= START_RATING;
+        p.baseRating ??= OPENING_RATING;
         p.historicalRaces ??= 0;
         p.historicalWins ??= 0;
         p.historicalPodiums ??= 0;
@@ -277,6 +281,6 @@ function recompute(races) {
 }
 
 module.exports = {
-    START_RATING, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
+    START_RATING, OPENING_RATING, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
     SCAN_CREDIT, levelOf, expected, recompute,
 };
