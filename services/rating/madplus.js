@@ -241,7 +241,7 @@ function buildRacesFromReports(leagueRaces, reports, links, now = Date.now()) {
         for (const e of ordered) {
             const k = identityInReport(e, g);
             if (!k) continue;
-            const isDnf = e.position == null && !(lapRanked && lapSeconds(e.bestLap) != null);
+            const isDnf = e.position == null && lapSeconds(e.bestLap) == null;
             (isDnf ? dnf : finished).push({ key: k.key, userId: k.userId, name: e.nick, dnf: isDnf,
                 appRecorded: !!k.userId && appUsers.has(k.userId) });
         }
