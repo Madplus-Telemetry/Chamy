@@ -62,10 +62,13 @@ module.exports = {
         const sub = interaction.options.getSubcommand();
         const guildId = interaction.guildId;
 
-        // globalban haric hepsi Administrator ister (setDefaultMemberPermissions).
+        // Tum alt komutlar Administrator ister (setDefaultMemberPermissions).
+        // globalban: her sunucu admini atabilir. Kendi sunucuda aninda ban; diger sunuculara
+        // moderator kanalinda istek gider (Review -> son 10 mesaj -> Ban / Not needed).
+        // globalunban: sadece bot sahibi.
         if (sub === 'globalban' || sub === 'globalunban') {
-            if (!perms.isOwner(interaction.user.id)) {
-                return interaction.reply({ content: '❌ Only the bot owner can manage the global ban list.', ephemeral: true });
+            if (sub === 'globalunban' && !perms.isOwner(interaction.user.id)) {
+                return interaction.reply({ content: '❌ Only the bot owner can remove a global ban.', ephemeral: true });
             }
             const userId = interaction.options.getString('user_id').trim().replace(/[<@!>]/g, '');
             if (!/^\d{17,20}$/.test(userId)) {
@@ -75,23 +78,13 @@ module.exports = {
             await interaction.deferReply({ ephemeral: true });
 
             if (sub === 'globalban') {
-                const reason = interaction.options.getString('reason') || 'Manually flagged raid account';
-                await GlobalBan.findOneAndUpdate(
-                    { userId },
-                    { $set: { reason, addedBy: interaction.user.id }, $setOnInsert: { hitGuilds: [] } },
-                    { upsert: true },
-                );
-                configStore.invalidateGlobalBans();
-                const r = await globalban.banEverywhere(interaction.client, userId, reason);
-                return interaction.editReply(
-                    `✅ \`${userId}\` added to the global ban list.\n` +
-                    `Banned now in **${r.banned}** server(s); already banned in ${r.already}; failed in ${r.failed}; ` +
-                    `no ban permission in ${r.skipped}.\n` +
-                    `They will also be banned on sight whenever they join any server Chamy is in.`,
-                );
+                const reason = interaction.options.getString('reason').trim().slice(0, 300);
+                const text = await require('../lib/antiraid/globalRequest').issue(interaction, userId, reason);
+                return interaction.editReply(text);
             }
 
             await GlobalBan.deleteOne({ userId });
+            await require('../models/GlobalBanRequest').deleteMany({ userId });
             configStore.invalidateGlobalBans();
             const r = await globalban.unbanEverywhere(interaction.client, userId);
             return interaction.editReply(
