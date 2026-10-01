@@ -574,6 +574,49 @@ async function getServerProfileContext(guildId) {
     }
 }
 
+// ── Elle duzeltilen ligler ────────────────────────────────────────────────
+const LEAGUE_STATUSES = ['active', 'upcoming', 'finished'];
+const leagueKey = s => String(s || '').trim().toLowerCase();
+
+// Otomatik cikarilan listeye yonetici duzeltmelerini uygular:
+// ayni isim -> durum/format ezilir, 'removed' -> listeden silinir, yeni isim -> eklenir.
+function applyLeagueOverrides(leagues, overrides) {
+    const out = (leagues || []).map(l => ({ name: l.name, format: l.format || '', status: l.status || '' }));
+    for (const o of overrides || []) {
+        const k = leagueKey(o.name);
+        const i = out.findIndex(l => leagueKey(l.name) === k);
+        if (o.status === 'removed') { if (i >= 0) out.splice(i, 1); continue; }
+        if (i >= 0) {
+            out[i].status = o.status;
+            if (o.format) out[i].format = o.format;
+        } else {
+            out.push({ name: o.name, format: o.format || '', status: o.status });
+        }
+    }
+    return out;
+}
+
+// Yoneticinin istegini kaydeder (yenilemelerde korunur) ve gorunen listeyi hemen gunceller.
+async function setLeagueStatus(guildId, { name, status, format }) {
+    const clean = String(name || '').trim().slice(0, 80);
+    if (!clean) return { error: 'missing_name', message: 'Tell me which championship/series to change.' };
+    const st = String(status || '').trim().toLowerCase();
+    if (![...LEAGUE_STATUSES, 'removed'].includes(st)) {
+        return { error: 'invalid_status', message: 'Status must be active, upcoming, finished, or removed.' };
+    }
+    const fmt = String(format || '').trim().slice(0, 80);
+    const p = await ServerProfile.findOne({ guildId });
+    if (!p) return { error: 'no_profile', message: 'No profile learned for this server yet. Ask the Commander to refresh the server profile first.' };
+
+    const k = leagueKey(clean);
+    const overrides = (p.leagueOverrides || []).filter(o => leagueKey(o.name) !== k).map(o => ({ name: o.name, format: o.format, status: o.status }));
+    overrides.push({ name: clean, format: fmt, status: st });
+    p.leagueOverrides = overrides;
+    p.leagues = applyLeagueOverrides(p.leagues.map(l => ({ name: l.name, format: l.format, status: l.status })), [overrides[overrides.length - 1]]);
+    await p.save();
+    return { success: true, name: clean, status: st, leagues: p.leagues.map(l => ({ name: l.name, status: l.status })) };
+}
+
 async function getServerProfile(guildId, section = 'all') {
     const p = await ServerProfile.findOne({ guildId }).lean().catch(() => null);
     if (!p) return null;
