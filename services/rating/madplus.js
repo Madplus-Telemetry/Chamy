@@ -228,12 +228,11 @@ function buildRacesFromReports(leagueRaces, reports, links, now = Date.now()) {
         if (now - new Date(r.finishedAt).getTime() < PUBLIC_GRACE_MS) continue;
         const appUsers = new Set([...g.owners.values()].filter(o => !o.conflict).map(o => o.userId));
         const finished = [], dnf = [];
-        // Oyun bazen sonucu siralama yazilmadan yollar (hepsi position=null). Kimse
-        // siralanmadiysa ve en az 2 kisinin gercek bir en iyi turu varsa, bitirenleri
-        // en iyi tura gore sirala; aksi halde eskisi gibi null = DNF. Siralananlar
-        // varken null olanlar yine DNF, ama kendi aralarinda tura gore dizilir.
-        const classified = r.entries.some(e => e.position != null);
-        const lapRanked = !classified && r.entries.filter(e => lapSeconds(e.bestLap) != null).length >= 2;
+        // Oyun sonucu ilk bitirenler cizgiyi gectiginde bir kez yollar: o an bitirmemis
+        // (hala yarista) herkes position=null gelir. Bunlar DNF DEGIL. Gercek bir en iyi turu
+        // (>0) olan null'lar bitirmis sayilir: siralananlarin arkasina, en iyi tura gore dizilir
+        // (gercek bitis sirasi bilinmiyor, tur yaklasik sira verir). En iyi turu 00:00.00 olan
+        // (hic tur atmamis) null'lar DNF kalir.
         const ordered = [...r.entries].sort((a, b) => {
             const pa = a.position ?? 1e9, pb = b.position ?? 1e9;
             if (pa !== pb) return pa - pb;
