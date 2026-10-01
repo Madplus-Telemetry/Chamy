@@ -53,7 +53,10 @@ module.exports = {
         .addSubcommand(s => s
             .setName('globalban').setDescription('Bot owner only: add a known raid account to the global ban list')
             .addStringOption(o => o.setName('user_id').setDescription('User ID').setRequired(true))
-            .addStringOption(o => o.setName('reason').setDescription('Reason'))),
+            .addStringOption(o => o.setName('reason').setDescription('Reason')))
+        .addSubcommand(s => s
+            .setName('globalunban').setDescription('Bot owner only: remove an account from the global ban list and unban it everywhere')
+            .addStringOption(o => o.setName('user_id').setDescription('User ID').setRequired(true))),
 
     async execute(interaction) {
         const sub = interaction.options.getSubcommand();
