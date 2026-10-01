@@ -661,4 +661,6 @@ module.exports = {
     refreshServerProfile,
     getServerProfileContext,
     getServerProfile,
+    setLeagueStatus,
+    applyLeagueOverrides,
 };
