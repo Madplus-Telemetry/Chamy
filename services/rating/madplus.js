@@ -137,7 +137,25 @@ async function buildRaces(leagueRaces) {
     return buildRacesFromReports(leagueRaces, reports, links);
 }
 
-function buildRacesFromReports(leagueRaces, reports, links, now = Date.now()) {
+// Rapordaki "position" -> gercek yer (1 = kazanan).
+//  • Yeni rapor: ham 0-tabanli f saklanir, kazananin f'i 0'dir -> hepsine +1.
+//  • Eski rapor: 0 null'a cevrilmisti. Oyun listeyi siralama sirasiyla yollar (dizinin ilk
+//    elemani kazanan, f = dizin), yani [null, 1, 2, 3, ...] -> ilk eleman 1, digerleri +1.
+//  • Hic bitiren yoksa (hepsi null) ya da zaten gercek yer olan rapora dokunulmaz.
+function truePlaces(r) {
+    const es = r.entries || [];
+    if (es.some(e => e.position === 0)) {
+        return { ...r, entries: es.map(e => (e.position == null ? e : { ...e, position: e.position + 1 })) };
+    }
+    if (es.length >= 2 && es[0].position == null && es[1].position === 1) {
+        return { ...r, entries: es.map((e, i) =>
+            i === 0 ? { ...e, position: 1 } : (e.position == null ? e : { ...e, position: e.position + 1 })) };
+    }
+    return r;
+}
+
+function buildRacesFromReports(leagueRaces, rawReports, links, now = Date.now()) {
+    const reports = rawReports.map(truePlaces);
     const byMadcar = new Map(links.map(l => [l.madcarId, l.discordId]));
     const byNick = new Map();
     for (const l of links) if (l.nick) byNick.set(norm(l.nick), l.discordId);
