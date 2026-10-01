@@ -480,7 +480,7 @@ async function refreshServerProfile(guild, opts = {}) {
             const backfilledLeagues = [...seriesNames]
                 .filter(name => !knownLeagueKeys.has(normName(name)))
                 .slice(0, Math.max(0, 8 - explicitLeagues.length))
-                .map(name => ({ name, format: '', status: 'active' }));
+                .map(name => ({ name, format: '', status: '' })); // durum bilinmiyor: yanlis "active" yazma
 
             learned = {
                 games: (Array.isArray(parsed.games) ? parsed.games : []).map(g => str(g, 60)).filter(Boolean).slice(0, 6),
@@ -490,7 +490,7 @@ async function refreshServerProfile(guild, opts = {}) {
                     days:    (Array.isArray(rs.days)  ? rs.days  : []).map(d => str(d, 20)).filter(Boolean).slice(0, 7),
                     times:   (Array.isArray(rs.times) ? rs.times : []).map(t => str(t, 40)).filter(Boolean).slice(0, 6),
                 },
-                leagues: [...explicitLeagues, ...backfilledLeagues].slice(0, 8),
+                leagues: applyLeagueOverrides([...explicitLeagues, ...backfilledLeagues].slice(0, 8), existing?.leagueOverrides),
                 calendar: calendar.slice(0, 20),
                 standings: standingsOut,
                 notes: (Array.isArray(parsed.notes) ? parsed.notes : []).map(n => str(n, 300)).filter(Boolean).slice(0, 8),
