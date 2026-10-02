@@ -1294,6 +1294,34 @@ const MOD_TOOL_DECLARATIONS = [
             },
             required: ['name', 'status']
         }
+    },
+    {
+        name:        'add_server_race',
+        description: "Add a race/session to THIS server's calendar shown in the Mad+ app (Home > Upcoming sessions, and which drivers see it as 'my race'). Use when the automatic calendar is empty or wrong, or when someone gives a race time: \"ChampMad F1 race is Saturday 18:00 UTC\", \"F2 yarışı her pazar 20:00\". Requires Manage Server (or Commander). Convert the time to UTC ISO-8601 yourself (use the server timezone from the profile if the user gives local time; ask if you truly cannot tell). 'series' must be the series name as used in the driver role, e.g. \"F1\" for the \"F1 Driver\" role. Set repeat_weekly for races that happen every week at the same time. The entry sticks across automatic profile refreshes.",
+        parameters: {
+            type: 'object',
+            properties: {
+                title:         { type: 'string', description: 'Race name, e.g. "ChampMad F1 - Round 5". Defaults to the series.' },
+                series:        { type: 'string', description: 'Series/league, e.g. "F1" or "ChampMad F1".' },
+                track:         { type: 'string', description: 'Optional track name.' },
+                starts_at_utc: { type: 'string', description: 'Start time as an ISO-8601 UTC string, e.g. 2026-10-03T18:00:00Z.' },
+                time_text:     { type: 'string', description: 'Optional time exactly as the user wrote it, used if the exact time is unclear.' },
+                host:          { type: 'string', description: 'Optional host name.' },
+                repeat_weekly: { type: 'boolean', description: 'True when this race repeats every week at the same time.' }
+            },
+            required: ['series']
+        }
+    },
+    {
+        name:        'remove_server_race',
+        description: "Remove a race that was added with add_server_race from THIS server's calendar (matched by its title or series). Requires Manage Server (or Commander). Triggers: \"remove the F1 race\", \"şu yarışı takvimden sil\".",
+        parameters: {
+            type: 'object',
+            properties: {
+                title: { type: 'string', description: 'Title or series of the manually added race to remove.' }
+            },
+            required: ['title']
+        }
     }
 ];
 
