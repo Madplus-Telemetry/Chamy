@@ -44,7 +44,7 @@
 const START_RATING            = 1000;
 const SCAN_CREDIT             = 0.5;
 const OPENING_RATING          = START_RATING * SCAN_CREDIT;
-const APP_K_MULT              = 1.0; // tuning knob for own-race deltas (normalising by 500 already lifts them ~1.4x vs the 1000-normalised weights)
+const APP_K_MULT              = 1.4; // tuning knob for own-race deltas (raised 1.0 -> 1.4: drivers found levels too grindy)
 const K_BASE                  = 100;
 const ELO_SCALE               = 1500;
 const RATING_FLOOR            = 100;
