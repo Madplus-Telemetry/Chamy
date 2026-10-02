@@ -733,4 +733,7 @@ module.exports = {
     getServerProfile,
     setLeagueStatus,
     applyLeagueOverrides,
+    addCalendarEvent,
+    removeCalendarEvent,
+    mergeManualEvents,
 };
