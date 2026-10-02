@@ -13,6 +13,11 @@ const reportEntrySchema = new Schema({
     bestLap:    { type: String, default: '' },
     fastestLap: { type: Boolean, default: false },
     local:      { type: Boolean, default: false },  // raporu yollayan kisinin kendisi
+    // Faz 1 (golge veri, rating'i etkilemez): telefonun telemetriden tahmin ettigi tur sureleri
+    // ve sollama sayilari. Birden fazla raporlayicidan capraz dogrulanacak.
+    lapTimesMs: { type: [Number], default: [] },
+    overtakes:  { type: Number, default: 0 },
+    overtaken:  { type: Number, default: 0 },
 }, { _id: false });
 
 const raceReportSchema = new Schema({
