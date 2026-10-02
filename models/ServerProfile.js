@@ -70,6 +70,8 @@ const serverProfileSchema = new Schema({
     // Yonetici elle duzelttiyse AI/otomatik yenileme ezmez. status: active|upcoming|finished|removed
     leagueOverrides: { type: [leagueSchema], default: [] },
     calendar:  { type: [eventSchema],    default: [] },
+    // Yonetici elle ekledi (source: 'manual'); otomatik yenileme ezmez, gecmis olanlar temizlenir
+    calendarOverrides: { type: [eventSchema], default: [] },
     standings: { type: [standingSchema], default: [] },
     notes:     { type: [String],         default: [] },
 
