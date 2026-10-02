@@ -22,6 +22,7 @@ const eventSchema = new Schema({
     host:      { type: String, default: '' },
     source:    { type: String, default: 'message' }, // discord_event | message
     sourceUrl: { type: String, default: '' },
+    repeatWeekly: { type: Boolean, default: false }, // elle eklenen haftalik tekrar eden yaris
 }, { _id: false });
 
 const standingRowSchema = new Schema({
