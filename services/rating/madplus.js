@@ -74,6 +74,11 @@ function cleanEntry(e) {
         bestLap:    String(e?.bestLap || '').slice(0, 16),
         fastestLap: !!e?.fastestLap,
         local:      !!e?.local,
+        // golge veri: gecersizse bos/0, rating'e girmez
+        lapTimesMs: (Array.isArray(e?.lapTimesMs) ? e.lapTimesMs : [])
+            .map(Number).filter(n => Number.isFinite(n) && n >= 8000 && n <= 900000).slice(0, 40).map(Math.round),
+        overtakes:  Number.isFinite(+e?.overtakes) && +e.overtakes >= 0 ? Math.min(999, Math.floor(+e.overtakes)) : 0,
+        overtaken:  Number.isFinite(+e?.overtaken) && +e.overtaken >= 0 ? Math.min(999, Math.floor(+e.overtaken)) : 0,
     };
 }
 
