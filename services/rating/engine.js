@@ -9,6 +9,9 @@
 // OPENING_RATING = START_RATING * SCAN_CREDIT (1000 * 0.5 = 500), i.e. exactly what
 // an average imported driver gets. (Used to be a flat 1000, which put a newcomer
 // 500 points above a driver with a short or weak league history.)
+// App ledger runs on that 500-centred scale, so field strength and league prestige
+// are normalised by OPENING_RATING there (the imported-history replay still uses
+// 1000), and own-race deltas get APP_K_MULT so levels are reachable but L10 stays rare.
 //
 // Yaris basina degisim (surucu i):
 //   delta_i = K * kMult_i * W * Σ_j damp_ij * (S_ij - E_ij) / (N - 1)
@@ -41,6 +44,7 @@
 const START_RATING            = 1000;
 const SCAN_CREDIT             = 0.5;
 const OPENING_RATING          = START_RATING * SCAN_CREDIT;
+const APP_K_MULT              = 1.0; // tuning knob for own-race deltas (normalising by 500 already lifts them ~1.4x vs the 1000-normalised weights)
 const K_BASE                  = 100;
 const ELO_SCALE               = 1500;
 const RATING_FLOOR            = 100;
@@ -81,7 +85,7 @@ function expected(ra, rb) {
     return 1 / (1 + Math.pow(10, (rb - ra) / ELO_SCALE));
 }
 
-function fieldFactors(keys, players) {
+function fieldFactors(keys, players, center = START_RATING) {
     let wSum = 0, rSum = 0, established = 0;
     for (const k of keys) {
         const p = players.get(k);
@@ -91,10 +95,10 @@ function fieldFactors(keys, players) {
         wSum += w;
         rSum += p.rating * w;
     }
-    const avg = wSum ? rSum / wSum : START_RATING;
+    const avg = wSum ? rSum / wSum : center;
     const share = keys.length ? established / keys.length : 0;
     return {
-        strength:    clamp(avg / START_RATING, 0.6, 1.6),
+        strength:    clamp(avg / center, 0.6, 1.6),
         recognition: 0.4 + 0.6 * share,
         size:        Math.min(1, Math.sqrt((keys.length - 1) / 9)),
         avgRating:   avg,
@@ -102,17 +106,17 @@ function fieldFactors(keys, players) {
     };
 }
 
-function leaguePrestige(race, players, guildActivity) {
+function leaguePrestige(race, players, guildActivity, center = START_RATING) {
     if (race.source === 'public') return { prestige: 1, activeDrivers: 0 };
     const raceAt = new Date(race.raceAt).getTime();
     const act = guildActivity.get(race.guildId) || new Map();
     const active = [...act.entries()].filter(([, at]) => at >= raceAt - LEAGUE_WINDOW_MS).map(([k]) => k);
     const avg = active.length
-        ? active.reduce((s, k) => s + (players.get(k)?.rating ?? START_RATING), 0) / active.length
-        : START_RATING;
+        ? active.reduce((s, k) => s + (players.get(k)?.rating ?? center), 0) / active.length
+        : center;
     const activity = Math.min(1, active.length / 30);
     const size = race.memberCount > 0 ? Math.min(1, Math.sqrt(race.memberCount / MEMBERS_FULL)) : 0;
-    const ratingFactor = clamp(avg / START_RATING, 0.7, 1.4);
+    const ratingFactor = clamp(avg / center, 0.7, 1.4);
     return {
         prestige: clamp((0.35 + 0.45 * activity + 0.2 * size) * ratingFactor, 0.3, 1.4),
         activeDrivers: active.length,
@@ -159,8 +163,9 @@ function replay(races, players = new Map(), appMode = false) {
         }
 
         const keys = entries.map(e => e.key);
-        const f = fieldFactors(keys, players);
-        const lp = leaguePrestige(race, players, guildActivity);
+        const center = appMode ? OPENING_RATING : START_RATING;
+        const f = fieldFactors(keys, players, center);
+        const lp = leaguePrestige(race, players, guildActivity, center);
         const source = SOURCE_WEIGHT[race.source] ?? 1;
         const season = isSeasonTable(race);
         const size = season ? 1 : f.size;
@@ -183,7 +188,7 @@ function replay(races, players = new Map(), appMode = false) {
             }
             const kMult = meEstablished ? 1 : PLACEMENT_K_MULT;
             const winScore = (i === 0 && !entries[0].dnf ? 1 : 0) - winProb[i];
-            return K_BASE * kMult * weight * (sum / (keys.length - 1) + WIN_WEIGHT * winScore);
+            return K_BASE * (appMode ? APP_K_MULT : 1) * kMult * weight * (sum / (keys.length - 1) + WIN_WEIGHT * winScore);
         });
 
         const raceAt = new Date(race.raceAt);
@@ -281,6 +286,6 @@ function recompute(races) {
 }
 
 module.exports = {
-    START_RATING, OPENING_RATING, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
+    START_RATING, OPENING_RATING, APP_K_MULT, K_BASE, ELO_SCALE, RATING_FLOOR, CHALLENGER_TOP, PLACEMENT_RACES, SOURCE_WEIGHT, LEVEL_THRESHOLDS,
     SCAN_CREDIT, levelOf, expected, recompute,
 };
