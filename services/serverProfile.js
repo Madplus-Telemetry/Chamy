@@ -497,10 +497,10 @@ async function refreshServerProfile(guild, opts = {}) {
             };
         } else if (scheduled.length) {
             // Çıkarım başarısız olsa bile Discord event'leri kesin bilgi — takvimi onlarla güncelle.
-            learned.calendar = scheduled.map(e => ({
+            learned.calendar = mergeManualEvents(scheduled.map(e => ({
                 title: e.title, series: '', track: '', startsAt: e.startsAt, timeText: '',
                 host: e.host, source: 'discord_event', sourceUrl: e.sourceUrl,
-            }));
+            })), existing?.calendarOverrides).slice(0, 20);
         }
 
         await ServerProfile.findOneAndUpdate(
