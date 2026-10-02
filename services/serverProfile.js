@@ -491,7 +491,7 @@ async function refreshServerProfile(guild, opts = {}) {
                     times:   (Array.isArray(rs.times) ? rs.times : []).map(t => str(t, 40)).filter(Boolean).slice(0, 6),
                 },
                 leagues: applyLeagueOverrides([...explicitLeagues, ...backfilledLeagues].slice(0, 8), existing?.leagueOverrides),
-                calendar: calendar.slice(0, 20),
+                calendar: mergedCalendar.slice(0, 20),
                 standings: standingsOut,
                 notes: (Array.isArray(parsed.notes) ? parsed.notes : []).map(n => str(n, 300)).filter(Boolean).slice(0, 8),
             };
