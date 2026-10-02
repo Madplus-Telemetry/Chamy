@@ -442,7 +442,7 @@ async function refreshServerProfile(guild, opts = {}) {
                 if (e.startsAt && fromDiscord.some(d => Math.abs(d.startsAt - e.startsAt) < 30 * 60 * 1000)) continue;
                 calendar.push(e);
             }
-            calendar.sort((a, b) => (a.startsAt ? a.startsAt.getTime() : Infinity) - (b.startsAt ? b.startsAt.getTime() : Infinity));
+            const mergedCalendar = mergeManualEvents(calendar, existing?.calendarOverrides);
 
             const rs = parsed.raceSchedule || {};
             const normName = s => String(s || '').trim().toLowerCase();
