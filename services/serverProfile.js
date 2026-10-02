@@ -617,6 +617,76 @@ async function setLeagueStatus(guildId, { name, status, format }) {
     return { success: true, name: clean, status: st, leagues: p.leagues.map(l => ({ name: l.name, status: l.status })) };
 }
 
+// ── Elle eklenen takvim etkinlikleri ──────────────────────────────────────
+// Yonetici "ChampMad F1 cumartesi 18:00 UTC" derse burada saklanir; otomatik
+// yenileme ezmez. repeatWeekly ise gecmise dusunce bir sonraki haftaya kayar.
+const GRACE_MS = 3 * 60 * 60 * 1000;
+const sameEvent = (a, b) => leagueKey(a.title || a.series) === leagueKey(b.title || b.series) &&
+    Math.abs((a.startsAt ? new Date(a.startsAt).getTime() : 0) - (b.startsAt ? new Date(b.startsAt).getTime() : 0)) < 30 * 60 * 1000;
+
+function nextOccurrence(e, now = Date.now()) {
+    if (!e.startsAt) return e;
+    let t = new Date(e.startsAt).getTime();
+    if (e.repeatWeekly && t < now - GRACE_MS) t += Math.ceil((now - GRACE_MS - t) / WEEK_MS) * WEEK_MS;
+    return { ...e, startsAt: new Date(t) };
+}
+
+function mergeManualEvents(calendar, overrides, now = Date.now()) {
+    const out = [...(calendar || [])];
+    for (const raw of overrides || []) {
+        const e = nextOccurrence({
+            title: raw.title, series: raw.series, track: raw.track, startsAt: raw.startsAt || null,
+            timeText: raw.timeText || '', host: raw.host || '', source: 'manual', sourceUrl: '',
+            repeatWeekly: !!raw.repeatWeekly,
+        }, now);
+        if (e.startsAt && new Date(e.startsAt).getTime() < now - GRACE_MS) continue; // gecmis, tekrar etmeyen
+        if (out.some(x => x.source !== 'manual' && sameEvent(x, e))) continue;       // ayni yaris zaten bulunmus
+        out.push(e);
+    }
+    out.sort((a, b) => (a.startsAt ? new Date(a.startsAt).getTime() : Infinity) - (b.startsAt ? new Date(b.startsAt).getTime() : Infinity));
+    return out;
+}
+
+async function addCalendarEvent(guildId, { title, series, track, startsAtUtc, timeText, host, repeatWeekly }) {
+    const t = str(title, 120);
+    const s = str(series, 80);
+    if (!t && !s) return { error: 'missing_title', message: 'Tell me which race/series this is, e.g. "ChampMad F1".' };
+    const startsAt = toDate(startsAtUtc);
+    if (!startsAt && !str(timeText, 80)) return { error: 'missing_time', message: 'Tell me the date and time (and timezone) of the race.' };
+    const p = await ServerProfile.findOne({ guildId });
+    if (!p) return { error: 'no_profile', message: 'No profile learned for this server yet. Ask the Commander to refresh the server profile first.' };
+
+    const entry = {
+        title: t || s, series: s, track: str(track, 80), startsAt, timeText: str(timeText, 80),
+        host: str(host, 60), source: 'manual', sourceUrl: '', repeatWeekly: !!repeatWeekly,
+    };
+    const now = Date.now();
+    const kept = (p.calendarOverrides || [])
+        .map(o => (o.toObject ? o.toObject() : o))
+        .filter(o => !sameEvent(o, entry))
+        .filter(o => o.repeatWeekly || !o.startsAt || new Date(o.startsAt).getTime() > now - 24 * 60 * 60 * 1000);
+    kept.push(entry);
+    p.calendarOverrides = kept.slice(-30);
+    const auto = (p.calendar || []).map(e => (e.toObject ? e.toObject() : e)).filter(e => e.source !== 'manual');
+    p.calendar = mergeManualEvents(auto, p.calendarOverrides, now).slice(0, 20);
+    await p.save();
+    const saved = nextOccurrence(entry, now);
+    return { success: true, title: entry.title, series: entry.series, startsAt: saved.startsAt ? saved.startsAt.toISOString() : null, repeatWeekly: entry.repeatWeekly };
+}
+
+async function removeCalendarEvent(guildId, title) {
+    const k = leagueKey(title);
+    if (!k) return { error: 'missing_title', message: 'Tell me which event to remove.' };
+    const p = await ServerProfile.findOne({ guildId });
+    if (!p) return { error: 'no_profile', message: 'No profile learned for this server yet.' };
+    const before = (p.calendarOverrides || []).length;
+    p.calendarOverrides = (p.calendarOverrides || []).filter(o => leagueKey(o.title) !== k && leagueKey(o.series) !== k);
+    p.calendar = (p.calendar || []).filter(e => !(e.source === 'manual' && (leagueKey(e.title) === k || leagueKey(e.series) === k)));
+    await p.save();
+    const removed = before - p.calendarOverrides.length;
+    return removed ? { success: true, removed } : { error: 'not_found', message: 'No manually added event with that name.' };
+}
+
 async function getServerProfile(guildId, section = 'all') {
     const p = await ServerProfile.findOne({ guildId }).lean().catch(() => null);
     if (!p) return null;
