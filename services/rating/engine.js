@@ -256,7 +256,7 @@ function replay(races, players = new Map(), appMode = false) {
         p.rank = i + 1;
         p.challenger = p.level >= 10 && i < CHALLENGER_TOP;
     });
-    return { players, raceWeights };
+    return { players, raceWeights, raceInfo };
 }
 
 function recompute(races) {
