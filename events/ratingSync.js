@@ -45,7 +45,7 @@ async function tick(client, scan = true) {
 
         await recomputeAll();
         // Empty is a valid snapshot too (for example after a rating reset).
-        await pushRatings().catch(err => console.error('[RATING] push failed:', err.message));
+        await pushRatings(client).catch(err => console.error('[RATING] push failed:', err.message));
     } catch (err) {
         console.error('[RATING] tick failed:', err.message);
     } finally {
