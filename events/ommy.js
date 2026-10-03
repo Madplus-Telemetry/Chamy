@@ -2670,7 +2670,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
             const genAI = getGemini();
             const model = genAI.getGenerativeModel({
                 model:             'gemini-2.5-flash',
-                tools:             getToolsForRole(role),
+                tools:             getToolsForRole(role, noAether),
                 systemInstruction: systemPrompt,
                 generationConfig: {
                     temperature:     0.8,
