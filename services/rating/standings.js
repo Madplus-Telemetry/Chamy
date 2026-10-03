@@ -1,7 +1,7 @@
 // services/rating/standings.js
 // Son hesaplamadaki yaris siralamalari (raceId -> { track, at, results }).
 // recomputeAll yazar, pushRatings lobiye gonderir. Bellekte tutulur; bot yeni
-// acildiysa bos kalir ve lobi onceki tabloyu korur.
+// acildiysa bos kalir ve lobi onceki tabloyu korur (ilk tick'te yeniden dolar).
 
 let latest = new Map();
 
