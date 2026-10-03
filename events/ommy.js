@@ -1478,13 +1478,21 @@ const COMMANDER_TOOL_DECLARATIONS = [
     },
 ];
 
-function getToolsForRole(role) {
+// Aether is a separate product; Madcar servers must never see or use it.
+async function isAetherBlocked(guild) {
+    if (!guild) return false;
+    try { return await require('../services/rating/ingest').isMadcarGuild(guild); } catch { return false; }
+}
+
+function getToolsForRole(role, noAether = false) {
     const decls = [...BASE_TOOL_DECLARATIONS];
     if (role === 'admin' || role === 'commander') decls.push(...MOD_TOOL_DECLARATIONS, ...RACING_TOOL_DECLARATIONS);
     // Registration, profile lookup and submission are member operations. The
     // executor performs the stricter live role check for admin/start tools.
-    decls.push(...AETHER_TOOL_DECLARATIONS);
-    decls.push(...AETHER_ALIAS_TOOL_DECLARATIONS);
+    if (!noAether) {
+        decls.push(...AETHER_TOOL_DECLARATIONS);
+        decls.push(...AETHER_ALIAS_TOOL_DECLARATIONS);
+    }
     if (role === 'commander') decls.push(...COMMANDER_TOOL_DECLARATIONS);
     return [{ functionDeclarations: decls }];
 }
