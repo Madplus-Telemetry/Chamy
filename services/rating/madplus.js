@@ -277,7 +277,7 @@ function buildRacesFromReports(leagueRaces, rawReports, links, now = Date.now())
         }
         const entries = [...finished, ...dnf].map((e, i) => ({ ...e, position: i + 1 }));
         if (entries.length < 2) continue;
-        out.push({ _id: `report:${String(r._id)}`, source: 'public', guildId: '', raceAt: r.finishedAt, memberCount: 0, entries, appVerified: true });
+        out.push({ _id: `report:${String(r._id)}`, source: 'public', guildId: '', track: String(r.trackId || ''), raceAt: r.finishedAt, memberCount: 0, entries, appVerified: true });
     }
     return canonicalize(out);
 }
