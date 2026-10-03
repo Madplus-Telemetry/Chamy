@@ -218,7 +218,8 @@ async function recomputeAll() {
     if (!isRatingEnabled()) return { players: 0, races: 0, skipped: PAUSED_REASON };
     const leagueRaces = await RaceResult.find({ ignored: { $ne: true } }).lean();
     const races = await require('./madplus').buildRaces(leagueRaces);
-    const { players } = engine.recompute(races);
+    const { players, raceInfo } = engine.recompute(races);
+    require('./standings').set(raceInfo);
 
     const ops = [...players.values()].map(p => ({
         updateOne: {
