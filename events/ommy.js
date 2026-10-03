@@ -2648,6 +2648,10 @@ RUNTIME CLOCK (authoritative for scheduling):
 ${currentTimeContext()}
 When a user gives a local time without a date, use today's date in the stated timezone if that time is still upcoming; otherwise use the next occurrence and say so. Never reuse Unix timestamps from examples, previous messages, or old conversation history. For IST, use Asia/Kolkata and the current date above.
 ${profileCtx}${knowledgeCtx}${personaTag}`;
+        if (noAether) {
+            systemPrompt = systemPrompt.replace(/AETHER SESSION TOOLS:[\s\S]*?summarize the profiles yourself\.\n/, '');
+            systemPrompt += '\n\nNEVER mention, explain, suggest or offer "Aether" (sessions, profiles, license keys, lap submissions) in this server. It is unrelated to this community; if asked, say you do not handle that here.';
+        }
 
         // Conversation history
         const histKey = `${message.guildId}-${message.author.id}`;
