@@ -366,7 +366,16 @@ function canonicalize(races) {
     }));
 }
 
-async function pushRatings() {
+const RACE_LOG_SHOWN = 20;
+
+function avatarOf(client, userId) {
+    if (!client || !userId) return null;
+    try {
+        return client.users?.cache?.get(userId)?.displayAvatarURL?.({ extension: 'png', size: 128 }) || null;
+    } catch { return null; }
+}
+
+async function pushRatings(client = null) {
     const l = lobby();
     if (!l) return { skipped: true };
     // Replace the lobby snapshot with an empty one while paused; otherwise
