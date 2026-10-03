@@ -2614,8 +2614,9 @@ module.exports = (client) => {
             return message.reply("⚠️ Chamy's radio is down — API not configured. 📡");
         }
 
-        const proofAttachments = await getAetherProofAttachments(message);
-        const asksToSubmit = /\b(submit|send|save|upload|gönder|yolla)\b/i.test(prompt) &&
+        const noAether = await isAetherBlocked(message.guild);
+        const proofAttachments = noAether ? { images: [], videos: [] } : await getAetherProofAttachments(message);
+        const asksToSubmit = !noAether && /\b(submit|send|save|upload|gönder|yolla)\b/i.test(prompt) &&
             (/\b(lap|laptime|time|aether|race|proof)\b/i.test(prompt) || proofAttachments.images.length > 0);
         if (asksToSubmit && (proofAttachments.images.length > 0 || proofAttachments.videos.length > 0)) {
             const result = await submitAetherProofFromMessage(message).catch(error => ({
