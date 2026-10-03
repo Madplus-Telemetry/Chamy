@@ -214,6 +214,7 @@ function replay(races, players = new Map(), appMode = false) {
                 weight: round1(weight * 100) / 100,
                 place: entries[i].dnf ? 0 : i + 1,
                 field: keys.length,
+                track: String(race.track || '').slice(0, 80),
             });
             if (p.history.length > HISTORY_KEEP) p.history.shift();
         });
