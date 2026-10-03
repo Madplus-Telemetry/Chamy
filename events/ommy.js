@@ -2787,7 +2787,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                 try {
                     const fbModel = getGemini().getGenerativeModel({
                         model:             'gemini-3.6-flash',
-                        tools:             getToolsForRole(role),
+                        tools:             getToolsForRole(role, noAether),
                         systemInstruction: systemPrompt,
                         generationConfig:  { temperature: 0.8, maxOutputTokens: 2048 },
                     });
