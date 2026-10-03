@@ -145,6 +145,7 @@ function isAppEntry(race, entry) {
 function replay(races, players = new Map(), appMode = false) {
     const guildActivity = new Map();
     const raceWeights = [];
+    const raceInfo = new Map();   // raceId -> { track, at, results } (yalniz Mad+ yarislari)
 
     const sorted = [...races]
         .filter(r => !r.ignored)
