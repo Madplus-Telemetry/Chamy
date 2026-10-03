@@ -1502,6 +1502,9 @@ function getToolsForRole(role, noAether = false) {
 // ══════════════════════════════════════════════════════════════════════════
 
 async function executeTool(name, args, client, guildId, userPrompt, message) {
+    if (String(name).startsWith('aether_') && await isAetherBlocked(message?.guild)) {
+        return { error: 'unavailable', message: 'This tool is not available here.' };
+    }
     const aliases = {
         aether_start_legacy: 'aether_start_session',
         aether_submit_seamless: 'aether_submit',
