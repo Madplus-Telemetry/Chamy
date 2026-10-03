@@ -2642,7 +2642,7 @@ module.exports = (client) => {
         const knowledgeCtx  = await getKnowledgeContext(message.guildId);
         const profileCtx    = await serverProfile.getServerProfileContext(message.guildId);
         const isHomeGuild   = message.guildId === LEGACY_GUILD_ID;
-        const systemPrompt  = `${ommySystemPromptBase(isHomeGuild)}
+        let systemPrompt  = `${ommySystemPromptBase(isHomeGuild)}
 
 RUNTIME CLOCK (authoritative for scheduling):
 ${currentTimeContext()}
