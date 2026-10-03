@@ -225,6 +225,17 @@ function replay(races, players = new Map(), appMode = false) {
             for (const k of keys) act.set(k, raceAt.getTime());
         }
 
+        if (appMode && entries.some(e => isAppEntry(race, e))) {
+            raceInfo.set(String(race._id || race.messageId || ''), {
+                track: String(race.track || '').slice(0, 80),
+                at: raceAt.getTime(),
+                results: entries.map((e, i) => ({
+                    id: e.userId || null, name: String(e.name || '').slice(0, 40),
+                    place: e.dnf ? 0 : i + 1, dnf: !!e.dnf,
+                })),
+            });
+        }
+
         raceWeights.push({
             raceId: String(race._id || race.messageId || ''),
             weight, source, ...f, prestige: lp.prestige, activeDrivers: lp.activeDrivers,
