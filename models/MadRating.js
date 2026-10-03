@@ -12,6 +12,7 @@ const historySchema = new Schema({
     weight: Number,
     place:  Number,
     field:  Number,
+    track:  String,
 }, { _id: false });
 
 const madRatingSchema = new Schema({
