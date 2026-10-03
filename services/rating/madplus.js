@@ -405,15 +405,29 @@ async function pushRatings(client = null) {
         rank: r.rank ?? null,
         challenger: !!r.challenger,
         lastRaceAt: r.lastRaceAt ? new Date(r.lastRaceAt).getTime() : null,
+        avatarUrl: avatarOf(client, r.userId),
         history: (r.history || []).map(h => ({
             at: h.at ? new Date(h.at).getTime() : null,
             rating: h.rating, delta: h.delta, place: h.place, field: h.field,
+            raceId: h.raceId || '', track: h.track || '',
         })),
     }));
+
+    // Full standings of the races shown in profile race logs (newest first, size-capped).
+    const info = rows.length ? require('./standings').get() : new Map();
+    const wanted = new Set();
+    for (const r of rows) for (const h of (r.history || []).slice(-RACE_LOG_SHOWN)) if (h.raceId) wanted.add(h.raceId);
+    const races = {};
+    let bytes = 0;
+    for (const [id, race] of [...info].filter(([id]) => wanted.has(id)).sort((a, b) => b[1].at - a[1].at)) {
+        bytes += JSON.stringify(race).length + id.length + 8;
+        if (bytes > 2_000_000) break;
+        races[id] = race;
+    }
     const res = await fetch(`${l.base}/v1/ratings/sync`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-MadPlus-League-Key': l.key },
-        body: JSON.stringify({ drivers }),
+        body: JSON.stringify(Object.keys(races).length ? { drivers, races } : { drivers }),
         signal: AbortSignal.timeout(20_000),
     });
     if (!res.ok) throw new Error(`lobby ${res.status}`);
