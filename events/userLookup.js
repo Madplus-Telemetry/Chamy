@@ -382,12 +382,6 @@ module.exports = client => {
                 exportAccounts.push(await buildExport(db, acc, laps));
             }
 
-            const json = Buffer.from(JSON.stringify({ version: 1, query, generatedAt: new Date().toISOString(), accounts: exportAccounts }));
-            if (json.length < 8 * 1024 * 1024) {
-                const safe = query.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 24) || 'lookup';
-                files.push(new AttachmentBuilder(json, { name: `madplus-${safe}.json` }));
-            }
-
             const embeds = built.map((b, i) => {
                 const e = b.embed;
                 const hasChart = files.some(f => f.name === `lap-${b.acc.discordId}.png`);
