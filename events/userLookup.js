@@ -5,7 +5,7 @@
 // bot sahibi + LOOKUP_USER_IDS (varsayilan: afhaam) secebilir; kanala erisimi olan
 // herkes arama yapabilir. JSON dosyasi Lap Trace Inspector artifact'ine yuklenir.
 
-const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
+const { EmbedBuilder, AttachmentBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 let createCanvas = null;
 try { ({ createCanvas } = require('@napi-rs/canvas')); } catch { /* grafik opsiyonel */ }
 const mongoose = require('mongoose');
