@@ -527,6 +527,34 @@ module.exports = client => {
             message.reply({ content: '❌ Lookup failed.', allowedMentions: { repliedUser: false } }).catch(() => {});
         }
     });
+
+    // Pist/sinif secme menusu: mesaji secilen turla yeniden olusturur.
+    client.on('interactionCreate', async interaction => {
+        try {
+            if (!interaction.isStringSelectMenu?.() || !interaction.customId.startsWith('ulk:')) return;
+            const channelId = await getLookupChannel(interaction.guildId);
+            if (!channelId || interaction.channelId !== channelId) return;
+
+            await interaction.deferUpdate();
+            const db = lobbyDb();
+            if (!db) return;
+            const discordId = interaction.customId.slice(4);
+            const acc = await loadAccount(db, `discord:${discordId}`);
+            const { embed, laps } = buildEmbed(acc);
+            const view = await buildView(db, acc, embed, laps, interaction.values[0]);
+            await interaction.editReply({
+                content: null,
+                embeds: view.embeds,
+                files: view.files,
+                attachments: [],
+                components: view.row ? [view.row] : [],
+                allowedMentions: { parse: [] },
+            });
+        } catch (err) {
+            console.error('[userLookup] select', err);
+            interaction.followUp?.({ content: '❌ Could not load that lap.', ephemeral: true }).catch(() => {});
+        }
+    });
 };
 
 module.exports.isAllowed = isAllowed;
