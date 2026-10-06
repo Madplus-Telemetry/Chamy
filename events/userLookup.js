@@ -391,7 +391,7 @@ module.exports = client => {
             await message.reply({
                 content: (ids.length > 1
                     ? `Found **${ids.length}** accounts${extra > 0 ? ` (showing ${shown.length}; refine the name or paste a Discord ID)` : ''}. `
-                    : '') + 'Drop the attached JSON into the Lap Trace Inspector for the full view.',
+                    : '') + '',
                 embeds,
                 files,
                 allowedMentions: { parse: [], repliedUser: false },
