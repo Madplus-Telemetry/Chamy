@@ -504,36 +504,22 @@ module.exports = client => {
             const extra = ids.length - shown.length;
 
             const files = [];
-            const exportAccounts = [];
-            for (const { acc, laps } of built) {
-                // Grafik: en son izi olan tur, benchmark ile
-                const latest = laps.filter(l => l.traceDoc)
-                    .sort((x, y) => new Date(y.traceDoc.updatedAt || 0) - new Date(x.traceDoc.updatedAt || 0))[0];
-                if (latest) {
-                    try {
-                        const user = parseTrace(latest.traceDoc.trace);
-                        const bench = await loadBenchmark(db, acc.accountId, latest.track, latest.cls);
-                        const png = drawChart(user, bench, `${acc.names?.[0] || acc.discordId} · ${latest.track} · ${latest.cls}`);
-                        if (png) files.push(new AttachmentBuilder(png, { name: `lap-${acc.discordId}.png` }));
-                    } catch (e) {
-                        console.error('[userLookup] chart failed:', e.message);
-                    }
-                }
+            const embeds = [];
+            const components = [];
+            for (const { acc, embed, laps } of built) {
+                const view = await buildView(db, acc, embed, laps, null);
+                files.push(...view.files);
+                embeds.push(...view.embeds);
+                if (view.row) components.push(view.row);
             }
 
-            const embeds = built.map((b, i) => {
-                const e = b.embed;
-                const hasChart = files.some(f => f.name === `lap-${b.acc.discordId}.png`);
-                if (hasChart && i === 0) e.setImage(`attachment://lap-${b.acc.discordId}.png`);
-                return e;
-            });
-
             await message.reply({
-                content: (ids.length > 1
-                    ? `Found **${ids.length}** accounts${extra > 0 ? ` (showing ${shown.length}; refine the name or paste a Discord ID)` : ''}. `
-                    : '') + '',
+                content: ids.length > 1
+                    ? `Found **${ids.length}** accounts${extra > 0 ? ` (showing ${shown.length}; refine the name or paste a Discord ID)` : ''}.`
+                    : undefined,
                 embeds,
                 files,
+                components,
                 allowedMentions: { parse: [], repliedUser: false },
             });
         } catch (err) {
