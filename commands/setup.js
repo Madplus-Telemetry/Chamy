@@ -103,7 +103,7 @@ module.exports = {
             if (everyoneCanSee) {
                 embed.addFields({
                     name: '⚠️ Channel is visible to everyone',
-                    value: 'Only the bot owner and lookup staff can trigger a lookup, but the results are posted in the channel — make it private.'
+                    value: 'Anyone who can see this channel can look up users — make it private.'
                 });
             }
 
