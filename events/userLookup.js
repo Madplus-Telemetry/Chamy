@@ -379,7 +379,6 @@ module.exports = client => {
                         console.error('[userLookup] chart failed:', e.message);
                     }
                 }
-                exportAccounts.push(await buildExport(db, acc, laps));
             }
 
             const embeds = built.map((b, i) => {
