@@ -201,7 +201,7 @@ module.exports = client => {
             if (message.author.bot || !message.guild) return;
             const channelId = await getLookupChannel(message.guildId);
             if (!channelId || message.channelId !== channelId) return;
-            if (!isAllowed(message.author.id)) return;
+            // Erisim kanal izinleriyle belirlenir: kanali gorebilen herkes arayabilir.
 
             const query = message.content.trim();
             if (!query || query.length > 64) return;
