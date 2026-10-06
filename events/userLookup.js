@@ -243,6 +243,146 @@ function drawChart(user, bench, label) {
     return canvas.toBuffer('image/png');
 }
 
+// Gaz / fren / vites / direksiyon paneli (kullanici vs benchmark).
+function drawInputs(user, bench, label) {
+    if (!createCanvas || !user?.samples?.length) return null;
+    const W = 1200, H = 640, L = 64, R = W - 24;
+    const canvas = createCanvas(W, H);
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#0f1218'; g.fillRect(0, 0, W, H);
+    const RED = '#ff4d4d', ORG = '#ffb02e', GRID = '#252b36', TXT = '#aab3c2';
+    g.fillStyle = '#e8ecf3'; g.font = 'bold 20px sans-serif'; g.fillText(`${label} · inputs`, 24, 30);
+    g.fillStyle = RED; g.fillRect(W - 250, 20, 14, 4);
+    g.fillStyle = TXT; g.font = '14px sans-serif'; g.fillText('your lap', W - 230, 26);
+    if (bench) { g.fillStyle = ORG; g.fillRect(W - 150, 20, 14, 4); g.fillStyle = TXT; g.fillText('benchmark', W - 130, 26); }
+
+    const bs = bench?.trace?.samples;
+    const maxGear = Math.max(...user.samples.map(p => p[9]), ...(bs || []).map(p => p[9]), 1);
+    const maxSteer = Math.max(0.2, ...user.samples.map(p => Math.abs(p[10])), ...(bs || []).map(p => Math.abs(p[10])));
+    const panels = [
+        { title: 'Throttle (%)', col: 7, lo: 0, hi: 1, f: v => String(Math.round(v * 100)) },
+        { title: 'Brake (%)', col: 8, lo: 0, hi: 1, f: v => String(Math.round(v * 100)) },
+        { title: 'Gear', col: 9, lo: 0, hi: maxGear, f: v => String(Math.round(v)) },
+        { title: 'Steering', col: 10, lo: -maxSteer, hi: maxSteer, f: v => v.toFixed(2) },
+    ];
+    const ph = 132, gap = 10, top = 46;
+    panels.forEach((pn, k) => {
+        const y0 = top + k * (ph + gap);
+        g.strokeStyle = GRID; g.lineWidth = 1; g.strokeRect(L, y0, R - L, ph);
+        g.fillStyle = TXT; g.font = '12px sans-serif';
+        g.fillText(pn.title, L + 8, y0 + 15);
+        g.textAlign = 'right';
+        g.fillText(pn.f(pn.hi), L - 6, y0 + 12);
+        g.fillText(pn.f(pn.lo), L - 6, y0 + ph - 2);
+        g.textAlign = 'left';
+        const X = d => L + d * (R - L), Y = v => y0 + ph - 4 - ((v - pn.lo) / ((pn.hi - pn.lo) || 1)) * (ph - 8);
+        const draw = (samples, color, w) => {
+            g.beginPath();
+            samples.forEach((p, i) => { const x = X(p[0]), y = Y(p[pn.col]); i ? g.lineTo(x, y) : g.moveTo(x, y); });
+            g.strokeStyle = color; g.lineWidth = w; g.lineJoin = 'round'; g.stroke();
+        };
+        if (bs) draw(bs, ORG, 2.4);
+        draw(user.samples, RED, 1.6);
+    });
+    g.fillStyle = TXT; g.font = '12px sans-serif';
+    for (let q = 0; q <= 4; q++) g.fillText(`${q * 25}%`, L + q * (R - L) / 4 - 8, H - 8);
+    return canvas.toBuffer('image/png');
+}
+
+// Tur istatistikleri + benchmark'a gore en cok kaybedilen/kazanilan bolge.
+function lapStats(user, bench, ms) {
+    const s = user.samples, n = s.length;
+    let top = 0, sum = 0, min = Infinity, ft = 0, br = 0, sh = 0;
+    for (let i = 0; i < n; i++) {
+        const p = s[i];
+        top = Math.max(top, p[5]); sum += p[5]; min = Math.min(min, p[5]);
+        if (p[7] > 0.95) ft++;
+        if (p[8] > 0.1) br++;
+        if (i && p[9] !== s[i - 1][9]) sh++;
+    }
+    const lines = [
+        `**Top** ${Math.round(top)} km/h · **Avg** ${Math.round(sum / n)} · **Min** ${Math.round(min)}`,
+        `**Full throttle** ${Math.round(ft / n * 100)}% · **Braking** ${Math.round(br / n * 100)}% · **Shifts** ${sh}`,
+    ];
+    const bs = bench?.trace?.samples;
+    if (bs && bs.length) {
+        const at = d => {
+            let lo = 0, hi = bs.length - 1;
+            while (lo < hi) { const m = (lo + hi) >> 1; if (bs[m][0] < d) lo = m + 1; else hi = m; }
+            return bs[lo][1];
+        };
+        const delta = s.map(p => p[1] - at(p[0]));
+        let worst = { v: -Infinity, a: 0, b: 0 }, bestW = { v: Infinity, a: 0, b: 0 };
+        for (let i = 0; i < n; i++) {
+            let j = i; while (j < n - 1 && s[j][0] < s[i][0] + 0.05) j++;
+            const dv = delta[j] - delta[i];
+            if (dv > worst.v) worst = { v: dv, a: s[i][0], b: s[j][0] };
+            if (dv < bestW.v) bestW = { v: dv, a: s[i][0], b: s[j][0] };
+        }
+        const diff = (ms - bench.lapTimeMs) / 1000;
+        const pct = x => Math.round(x * 100);
+        lines.push(`**vs ${bench.driverName}** ${diff >= 0 ? '+' : ''}${diff.toFixed(3)} s`);
+        if (worst.v > 0.02) lines.push(`Most time lost: +${worst.v.toFixed(2)} s at ${pct(worst.a)}–${pct(worst.b)}% of lap`);
+        if (bestW.v < -0.02) lines.push(`Most time gained: ${bestW.v.toFixed(2)} s at ${pct(bestW.a)}–${pct(bestW.b)}% of lap`);
+    } else {
+        lines.push('No clean benchmark available for this track/class.');
+    }
+    return lines.join('\n');
+}
+
+// Bir hesap icin: secili turun embed'i + grafikler + tur secme menusu.
+async function buildView(db, acc, embed, laps, selKey) {
+    const traced = laps.filter(l => l.traceDoc);
+    const out = { embeds: [embed], files: [], row: null };
+    if (!traced.length) return out;
+    const sel = traced.find(l => l.key === selKey)
+        || traced.slice().sort((x, y) => new Date(y.traceDoc.updatedAt || 0) - new Date(x.traceDoc.updatedAt || 0))[0];
+    const user = parseTrace(sel.traceDoc.trace);
+    if (user?.samples?.length) {
+        if (user.lapTimeMs == null) user.lapTimeMs = sel.ms;
+        const bench = await loadBenchmark(db, acc.accountId, sel.track, sel.cls).catch(() => null);
+        const label = `${acc.names?.[0] || acc.discordId} · ${sel.track} · ${sel.cls}`;
+        const stamp = Date.now();
+        const flags = [];
+        if (sel.modded === true) flags.push('🛠 modded');
+        if (sel.cut === true) flags.push(`⚠️ cut? (${sel.dev} m)`);
+        if (sel.penalized) flags.push(`⛔ penalty (raw ${fmtMs(sel.penalized)})`);
+        embed.addFields({
+            name: `Selected lap · ${sel.track} ${sel.cls} · ${fmtMs(sel.ms)}`,
+            value: (lapStats(user, bench, sel.ms) + (flags.length ? '\n' + flags.join(' · ') : '')).slice(0, 1020),
+        });
+        try {
+            const p1 = drawChart(user, bench, label);
+            if (p1) {
+                const n1 = `lap-${acc.discordId}-${stamp}.png`;
+                out.files.push(new AttachmentBuilder(p1, { name: n1 }));
+                embed.setImage(`attachment://${n1}`);
+            }
+            const p2 = drawInputs(user, bench, label);
+            if (p2) {
+                const n2 = `inp-${acc.discordId}-${stamp}.png`;
+                out.files.push(new AttachmentBuilder(p2, { name: n2 }));
+                out.embeds.push(new EmbedBuilder().setColor(0x3498db).setImage(`attachment://${n2}`));
+            }
+        } catch (e) {
+            console.error('[userLookup] chart failed:', e.message);
+        }
+    }
+    const opts = traced.slice(0, 25).map(l => ({
+        label: `${l.track} · ${l.cls}`.slice(0, 100),
+        description: fmtMs(l.ms) + (l.cut === true ? ' · cut?' : '') + (l.modded === true ? ' · modded' : ''),
+        value: l.key.slice(0, 100),
+        default: l.key === sel.key,
+    }));
+    out.row = new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+            .setCustomId(`ulk:${acc.discordId}`)
+            .setPlaceholder('Pick a track / class')
+            .addOptions(opts)
+    );
+    return out;
+}
+
 function buildEmbed(acc) {
     const { accountId, discordId, sessionLaps, traces, accountData, rating } = acc;
     const profile = accountData?.data?.profile || {};
