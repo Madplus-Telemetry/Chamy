@@ -1,8 +1,8 @@
 // events/userLookup.js
 // Staff-only kullanici arama kanali: /setup lookup ile secilen kanala bir isim
 // (veya Discord ID / @mention) yazilir, bot Mad+ lobi veritabanindan o kullanicinin
-// verilerini embed olarak yollar. Sadece bot sahibi + LOOKUP_USER_IDS (varsayilan:
-// afhaam) kullanabilir; baskasinin mesajina hic cevap verilmez.
+// verilerini embed olarak yollar. Kanali sadece bot sahibi + LOOKUP_USER_IDS
+// (varsayilan: afhaam) secebilir; kanala erisimi olan herkes arama yapabilir.
 
 const { EmbedBuilder } = require('discord.js');
 const mongoose = require('mongoose');
