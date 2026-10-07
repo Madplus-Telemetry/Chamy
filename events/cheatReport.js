@@ -164,7 +164,7 @@ async function postForReview(client, autoSend, fallbackChannel) {
 
     const embed = new EmbedBuilder()
         .setColor(count ? 0xE10600 : 0x2ecc71)
-        .setTitle('Weekly Mad+ cheat report - review before sending')
+        .setTitle(emailed ? 'Weekly Mad+ cheat report - sent to the studio' : 'Mad+ cheat report - preview')
         .setDescription(count ? summaryLines(report).join('\n').slice(0, 3900) : 'No impossible laps this week.')
         .addFields(
             { name: 'Flagged laps', value: String(count), inline: true },
