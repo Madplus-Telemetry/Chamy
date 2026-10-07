@@ -211,7 +211,8 @@ async function sendEmail(report, images) {
         <p>Hello,</p>
         <p>This is the weekly Mad+ report of laps that look physically impossible compared with
         other drivers on the same track and car class. Modded sessions and possible corner-cut laps are excluded.
-        Each entry was reviewed by a person on the Mad+ team before sending.</p>
+        The list is generated automatically from a fixed threshold (a lap more than 30% faster than the class median),
+        so please treat it as a lead to check, not as proof.</p>
         <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:13px">
           <tr><th>Driver</th><th>Account (Discord)</th><th>Track</th><th>Class</th><th>Lap</th><th>Class median</th><th>Data</th></tr>
           ${rows}
