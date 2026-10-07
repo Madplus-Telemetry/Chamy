@@ -222,6 +222,14 @@ async function sendEmail(report, images) {
           <tr><th>Driver</th><th>Account (Discord)</th><th>Track</th><th>Class</th><th>Lap</th><th>Class median</th><th>Data</th></tr>
           ${rows}
         </table>
+        ${peerRows ? `
+        <p><b>Players observed by Mad+ users.</b> The players below may not use Mad+. Mad+ users in their rooms saw them
+        repeatedly teleport or move at a speed no car can reach. Each player was seen by at least two different Mad+ users.
+        "Player ID" is the ID assigned by Madcar Racing. Speeds are as received over the network, so again, a lead to check, not proof.</p>
+        <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;font-size:13px">
+          <tr><th>Nickname</th><th>Player ID</th><th>Observers</th><th>Rooms</th><th>Teleports</th><th>Overspeed episodes</th><th>Max speed (km/h)</th><th>Tracks</th></tr>
+          ${peerRows}
+        </table>` : ''}
         <p>Charts (track line and speed trace) and the raw data are attached.</p>
         <p>- Mad+ team</p>`;
     await transporter.sendMail({
