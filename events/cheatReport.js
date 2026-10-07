@@ -140,18 +140,27 @@ function summaryLines(report) {
     );
 }
 
-async function postForReview(client, force, fallbackChannel) {
+// autoSend=true (haftalik calisma): rapor dogrudan e-postayla gider, kanal (varsa) sadece bilgi kopyasi alir.
+// autoSend=false (om!cheatreport): sadece onizleme + "Send to studio" butonu.
+async function postForReview(client, autoSend, fallbackChannel) {
     const l = lobby();
     const channelId = (process.env.CHEAT_REPORT_REVIEW_CHANNEL_ID || '').trim();
     const channel = fallbackChannel
         || (channelId ? (client.channels.cache.get(channelId) || await client.channels.fetch(channelId).catch(() => null)) : null);
-    if (!l || !channel?.send) {
-        console.log('[CHEAT REPORT] Disabled (MADPLUS_LOBBY_URL / MADPLUS_STEWARD_KEY / CHEAT_REPORT_REVIEW_CHANNEL_ID missing).');
+    if (!l || (!autoSend && !channel?.send)) {
+        console.log('[CHEAT REPORT] Disabled (MADPLUS_LOBBY_URL / MADPLUS_STEWARD_KEY missing, or no channel for a manual run).');
         return false;
     }
     const report = await fetchReport(l);
     const images = buildImages(report);
     const count = (report.entries || []).length;
+    let emailed = false;
+    if (autoSend && count > 0) {
+        await sendEmail(report, images);
+        emailed = true;
+        console.log(`[CHEAT REPORT] Emailed to studio automatically (${count} entries).`);
+    }
+    if (!channel?.send) return true;
 
     const embed = new EmbedBuilder()
         .setColor(count ? 0xE10600 : 0x2ecc71)
