@@ -239,7 +239,7 @@ async function weeklyTick(client) {
     try {
         const cursor = await ResultCursor.findOne({ channelId: CURSOR_ID }).lean();
         if (cursor?.lastMessageId === week) return;
-        const ok = await postForReview(client, false, null);
+        const ok = await postForReview(client, true, null);
         if (ok) {
             await ResultCursor.updateOne(
                 { channelId: CURSOR_ID },
