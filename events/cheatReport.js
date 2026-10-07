@@ -268,7 +268,7 @@ module.exports = (client) => {
             if (message.content.trim().toLowerCase() !== 'om!cheatreport') return;
             if (!perms.isOwner(message.author.id)) return;
             await message.channel.sendTyping().catch(() => {});
-            const ok = await postForReview(client, true, message.channel);
+            const ok = await postForReview(client, false, message.channel);
             if (!ok) await message.reply('Cheat report is not configured (see env vars).');
         } catch (err) {
             console.error('[CHEAT REPORT] manual run failed:', err.message);
