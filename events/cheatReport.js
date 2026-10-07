@@ -134,10 +134,15 @@ function buildImages(report) {
 }
 
 function summaryLines(report) {
-    return (report.entries || []).slice(0, 25).map((e, i) =>
+    const laps = (report.entries || []).slice(0, 25).map((e, i) =>
         `**${i + 1}.** ${e.driverName} (\`${e.accountId}\`) - ${e.trackId} / ${e.carClass} - ` +
         `**${fmt(e.lapTimeMs)}** vs median ${fmt(e.referenceMedianMs)}${e.trace ? '' : ' (time only)'}`,
     );
+    const peers = (report.peerEntries || []).slice(0, 15).map((p) =>
+        `**Peer:** ${p.nick || '?'} (\`${p.playerId}\`) - ${p.observers} observers, ${p.teleports} teleports, ` +
+        `${p.speedEpisodes} overspeed episodes, max ${Math.round((p.maxSpeedMs || 0) * 3.6)} km/h`,
+    );
+    return [...laps, ...peers];
 }
 
 // autoSend=true (haftalik calisma): rapor dogrudan e-postayla gider, kanal (varsa) sadece bilgi kopyasi alir.
