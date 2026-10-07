@@ -179,9 +179,14 @@ async function postForReview(client, autoSend, fallbackChannel) {
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(SEND_BUTTON).setLabel('Send to studio').setStyle(ButtonStyle.Danger).setDisabled(count === 0),
     );
-    const msg = await channel.send({ embeds: [embed], files, components: [row], allowedMentions: { parse: [] } });
-    pending.set(msg.id, { report, images });
-    console.log(`[CHEAT REPORT] Posted for review (${count} entries).`);
+    const msg = await channel.send({
+        embeds: [embed],
+        files,
+        components: emailed ? [] : [row],
+        allowedMentions: { parse: [] },
+    });
+    if (!emailed) pending.set(msg.id, { report, images });
+    console.log(`[CHEAT REPORT] Posted to channel (${count} entries, emailed=${emailed}).`);
     return true;
 }
 
