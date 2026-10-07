@@ -171,7 +171,7 @@ async function postForReview(client, autoSend, fallbackChannel) {
             { name: 'Modded (excluded)', value: String(report.moddedSkipped ?? 0), inline: true },
             { name: 'Cut-suspect (excluded)', value: String(report.cutSkipped ?? 0), inline: true },
         )
-        .setFooter({ text: 'Only the bot owner can send this to the studio.' })
+        .setFooter({ text: emailed ? 'Sent automatically.' : 'Only the bot owner can send this to the studio.' })
         .setTimestamp();
 
     const files = images.map((im) => new AttachmentBuilder(im.buffer, { name: im.name }));
