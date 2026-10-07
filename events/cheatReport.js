@@ -153,7 +153,7 @@ async function postForReview(client, autoSend, fallbackChannel) {
     }
     const report = await fetchReport(l);
     const images = buildImages(report);
-    const count = (report.entries || []).length;
+    const count = (report.entries || []).length + (report.peerEntries || []).length;
     let emailed = false;
     if (autoSend && count > 0) {
         await sendEmail(report, images);
