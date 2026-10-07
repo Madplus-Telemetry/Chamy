@@ -212,6 +212,12 @@ async function sendEmail(report, images) {
           <td>${esc(fmt(e.lapTimeMs))}</td><td>${esc(fmt(e.referenceMedianMs))}</td>
           <td>${e.trace ? 'trace' : 'time only'}</td>
         </tr>`).join('');
+    const peerRows = (report.peerEntries || []).map((p) => `
+        <tr>
+          <td>${esc(p.nick)}</td><td>${esc(p.playerId)}</td><td>${esc(p.observers)}</td><td>${esc(p.rooms)}</td>
+          <td>${esc(p.teleports)}</td><td>${esc(p.speedEpisodes)}</td>
+          <td>${esc(Math.round((p.maxSpeedMs || 0) * 3.6))}</td><td>${esc((p.tracks || []).join(', '))}</td>
+        </tr>`).join('');
     const html = `
         <p>Hello,</p>
         <p>This is the weekly Mad+ report of laps that look physically impossible compared with
