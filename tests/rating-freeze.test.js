@@ -36,7 +36,7 @@ test('frozen races keep their deltas when later races change the field', () => {
 
     const keep = frozenRun.players.get('u:B').history.map(h => h.delta);
     // the 12 original races carry the exact deltas they had at first compute
-    assert.deepEqual(keep.slice(-12).slice(-history.length), history.slice(-keep.slice(-12).length));
+    assert.deepEqual(keep.slice(-12), history);
     assert.notEqual(rating(unfrozen, 'B'), rating(first, 'B'));
 });
 
