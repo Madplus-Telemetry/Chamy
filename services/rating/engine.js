@@ -168,32 +168,58 @@ function replay(races, players = new Map(), appMode = false, freeze = {}) {
 
         const keys = entries.map(e => e.key);
         const center = appMode ? OPENING_RATING : START_RATING;
-        const f = fieldFactors(keys, players, center);
-        const lp = leaguePrestige(race, players, guildActivity, center);
-        const source = SOURCE_WEIGHT[race.source] ?? 1;
-        const season = isSeasonTable(race);
-        const size = season ? 1 : f.size;
-        const weight = clamp(source * f.strength * f.recognition * size * lp.prestige * (season ? SEASON_WEIGHT : 1), WEIGHT_MIN, WEIGHT_MAX);
+        const rid = String(race._id || race.messageId || '');
+        const freezeId = `${ledger}:${rid}`;
+        const hash = entries.map(e => `${e.key}${e.dnf ? '!' : ''}${isAppEntry(race, e) ? '*' : ''}`).join('|');
+        const rec = rid && frozenMap ? frozenMap.get(freezeId) : null;
+        let f, lp, source, weight, deltas;
+        if (rec && rec.entriesHash === hash) {
+            // Dondurulmus yaris: yaris aninda hesaplanan degerler aynen kullanilir.
+            const byKey = new Map(rec.deltas);
+            deltas = keys.map(k => byKey.get(k) ?? 0);
+            weight = rec.weight;
+            source = rec.info?.source ?? (SOURCE_WEIGHT[race.source] ?? 1);
+            f = rec.info || {};
+            lp = { prestige: rec.info?.prestige ?? 1, activeDrivers: rec.info?.activeDrivers ?? 0 };
+        } else {
+            f = fieldFactors(keys, players, center);
+            lp = leaguePrestige(race, players, guildActivity, center);
+            source = SOURCE_WEIGHT[race.source] ?? 1;
+            const season = isSeasonTable(race);
+            const size = season ? 1 : f.size;
+            weight = clamp(source * f.strength * f.recognition * size * lp.prestige * (season ? SEASON_WEIGHT : 1), WEIGHT_MIN, WEIGHT_MAX);
 
-        const before = keys.map(k => players.get(k).rating);
-        const strengths = before.map(r => Math.pow(10, r / ELO_SCALE));
-        const totalStrength = strengths.reduce((a, b) => a + b, 0);
-        const winProb = strengths.map(s => s / totalStrength);
-        const deltas = keys.map((k, i) => {
-            const me = players.get(k);
-            const meEstablished = me.races >= PLACEMENT_RACES;
-            let sum = 0;
-            for (let j = 0; j < keys.length; j++) {
-                if (j === i) continue;
-                const opp = players.get(keys[j]);
-                const s = entries[i].dnf && entries[j].dnf ? 0.5 : (i < j ? 1 : 0);
-                const damp = meEstablished && opp.races < PLACEMENT_RACES ? PLACEMENT_OPPONENT_DAMP : 1;
-                sum += damp * (s - expected(before[i], before[j]));
+            const before = keys.map(k => players.get(k).rating);
+            const strengths = before.map(r => Math.pow(10, r / ELO_SCALE));
+            const totalStrength = strengths.reduce((a, b) => a + b, 0);
+            const winProb = strengths.map(s => s / totalStrength);
+            deltas = keys.map((k, i) => {
+                const me = players.get(k);
+                const meEstablished = me.races >= PLACEMENT_RACES;
+                let sum = 0;
+                for (let j = 0; j < keys.length; j++) {
+                    if (j === i) continue;
+                    const opp = players.get(keys[j]);
+                    const s = entries[i].dnf && entries[j].dnf ? 0.5 : (i < j ? 1 : 0);
+                    const damp = meEstablished && opp.races < PLACEMENT_RACES ? PLACEMENT_OPPONENT_DAMP : 1;
+                    sum += damp * (s - expected(before[i], before[j]));
+                }
+                const kMult = meEstablished ? 1 : PLACEMENT_K_MULT;
+                const winScore = (i === 0 && !entries[0].dnf ? 1 : 0) - winProb[i];
+                return K_BASE * (appMode ? APP_K_MULT : 1) * kMult * weight * (sum / (keys.length - 1) + WIN_WEIGHT * winScore);
+            });
+            if (freezeOut && rid) {
+                freezeOut.push({
+                    freezeId, ledger, raceId: rid, entriesHash: hash, weight,
+                    deltas: keys.map((k, i) => [k, deltas[i]]),
+                    info: {
+                        source, strength: f.strength, recognition: f.recognition, size: f.size,
+                        avgRating: f.avgRating, establishedShare: f.establishedShare,
+                        prestige: lp.prestige, activeDrivers: lp.activeDrivers,
+                    },
+                });
             }
-            const kMult = meEstablished ? 1 : PLACEMENT_K_MULT;
-            const winScore = (i === 0 && !entries[0].dnf ? 1 : 0) - winProb[i];
-            return K_BASE * (appMode ? APP_K_MULT : 1) * kMult * weight * (sum / (keys.length - 1) + WIN_WEIGHT * winScore);
-        });
+        }
 
         const raceAt = new Date(race.raceAt);
         keys.forEach((k, i) => {
