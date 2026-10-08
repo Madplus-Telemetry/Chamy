@@ -288,9 +288,13 @@ function replay(races, players = new Map(), appMode = false, freeze = {}) {
     return { players, raceWeights, raceInfo };
 }
 
-function recompute(races) {
+// opts.frozen: Map "ledger:raceId" -> dondurulmus kayit (yoksa her sey bastan hesaplanir)
+// Donus: freezes = yeni hesaplanan/guncellenen kayitlar (DB'ye yazilmali).
+function recompute(races, opts = {}) {
     const valid = races.filter(r => !r.ignored);
-    const scanned = replay(valid.filter(r => r.source !== 'public'));
+    const freezes = [];
+    const fz = { frozen: opts.frozen || null, out: freezes };
+    const scanned = replay(valid.filter(r => r.source !== 'public'), new Map(), false, fz);
     const seeds = new Map();
     for (const old of scanned.players.values()) {
         if (!old.races) continue;
