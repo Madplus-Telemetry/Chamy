@@ -325,6 +325,7 @@ function recompute(races, opts = {}) {
     return {
         players: live.players,
         raceInfo: live.raceInfo,
+        freezes,
         raceWeights: [
             ...scanned.raceWeights.map(w => ({ ...w, ledger: 'scan' })),
             ...live.raceWeights.map(w => ({ ...w, ledger: 'app' })),
