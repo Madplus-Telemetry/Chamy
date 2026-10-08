@@ -307,7 +307,7 @@ function recompute(races, opts = {}) {
             historicalPodiums: old.podiums,
         });
     }
-    const live = replay(valid.filter(r => r.entries?.some(e => isAppEntry(r, e))), seeds, true);
+    const live = replay(valid.filter(r => r.entries?.some(e => isAppEntry(r, e))), seeds, true, fz);
     for (const [key, p] of live.players) {
         if (!p.races && !p.historicalRaces) {
             live.players.delete(key);
