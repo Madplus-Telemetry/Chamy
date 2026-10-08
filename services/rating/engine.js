@@ -142,7 +142,10 @@ function isAppEntry(race, entry) {
  * @param races RaceResult benzeri objeler (entries bitis sirasinda, DNF'ler sonda)
  * @returns { players: Map<key, player>, raceWeights: [...] }
  */
-function replay(races, players = new Map(), appMode = false) {
+function replay(races, players = new Map(), appMode = false, freeze = {}) {
+    const ledger = appMode ? 'app' : 'scan';
+    const frozenMap = freeze.frozen || null;   // Map "ledger:raceId" -> kayit
+    const freezeOut = freeze.out || null;      // yeni/guncellenen kayitlar buraya
     const guildActivity = new Map();
     const raceWeights = [];
     const raceInfo = new Map();   // raceId -> { track, at, results } (yalniz Mad+ yarislari)
