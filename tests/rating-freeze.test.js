@@ -46,7 +46,7 @@ test('changed race results are recomputed instead of reusing a stale freeze', ()
     const fixed = races.map((r, i) => i === 3 ? race(3, [...names].reverse()) : r);
     const res = engine.recompute(fixed, { frozen });
     const redo = res.freezes.filter(f => f.ledger === 'app');
-    assert.deepEqual(redo.map(f => f.raceId), ['r3', 'r4', 'r5', 'r6', 'r7', 'r8', 'r9', 'r10', 'r11'].slice(0, 1));
+    assert.deepEqual(redo.map(f => f.raceId), ['r3']);
 });
 
 test('a repeated run with freezes reproduces the same ratings and emits nothing', () => {
