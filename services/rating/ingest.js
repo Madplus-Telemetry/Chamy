@@ -218,8 +218,17 @@ async function recomputeAll() {
     if (!isRatingEnabled()) return { players: 0, races: 0, skipped: PAUSED_REASON };
     const leagueRaces = await RaceResult.find({ ignored: { $ne: true } }).lean();
     const races = await require('./madplus').buildRaces(leagueRaces);
-    const { players, raceInfo } = engine.recompute(races);
+    const FrozenRace = require('../../models/FrozenRace');
+    const frozen = new Map((await FrozenRace.find({}).lean()).map(r => [r.freezeId, r]));
+    const { players, raceInfo, freezes } = engine.recompute(races, { frozen });
     require('./standings').set(raceInfo);
+
+    // Yeni (ya da sonuclari degisen) yarislarin degisimlerini dondur.
+    if (freezes.length) {
+        await FrozenRace.bulkWrite(freezes.map(f => ({
+            updateOne: { filter: { freezeId: f.freezeId }, update: { $set: f }, upsert: true },
+        })), { ordered: false });
+    }
 
     const ops = [...players.values()].map(p => ({
         updateOne: {
