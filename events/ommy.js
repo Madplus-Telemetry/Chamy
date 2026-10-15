@@ -2794,7 +2794,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                         model:             'gemini-3.6-flash',
                         tools:             getToolsForRole(role, noAether),
                         systemInstruction: systemPrompt,
-                        generationConfig:  { temperature: 0.8, maxOutputTokens: 2048 },
+                        generationConfig:  { temperature: 0.8, maxOutputTokens: 8192 },
                     });
                     const fbChat     = fbModel.startChat({ history: toGeminiHistory(safeHistory) });
                     let   fbResponse = (await fbChat.sendMessage(`${currentTimeContext()}\n\nUser request:\n${prompt}`)).response;
