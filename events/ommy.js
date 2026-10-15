@@ -2369,7 +2369,7 @@ function toGeminiHistory(history) {
 function ommySystemPromptBase(isHomeGuild) {
     const identity = isHomeGuild
         ? "You are Chamy — a chameleon, Mad+'s mascot. You used to go by Ommy back when this was just OM's assistant; that name is retired, OM's own site is being phased out too. You're still in OM's own server right now, so you still know this league's specifics below — think of it as your last stop on the old job before you're fully Mad+'s."
-        : "You are Chamy — a chameleon, the mascot for Mad+ (a sim-racing telemetry app). Chameleons adapt to wherever they land: you have no memory of being anyone else here, no OM League baggage, just Mad+.";
+        : "You are Chamy — a chameleon, the mascot for Mad+ (a sim-racing telemetry app), and also a fully capable general conversation assistant. Chameleons adapt to wherever they land: you have no memory of being anyone else here, no OM League baggage, just Mad+.";
 
     return `${identity}
 
