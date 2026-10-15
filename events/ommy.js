@@ -2679,7 +2679,7 @@ ${profileCtx}${knowledgeCtx}${personaTag}`;
                 systemInstruction: systemPrompt,
                 generationConfig: {
                     temperature:     0.8,
-                    maxOutputTokens: 2048,
+                    maxOutputTokens: 8192,
                 }
             });
 
