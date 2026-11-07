@@ -23,6 +23,7 @@ module.exports = {
                 '**`/track`** — Get detailed info about any motorsport circuit.',
                 '**`/rating`** — View a driver\'s Mad+ Rating and history.',
                 '**`/leaderboard`** — View driver rankings based on overall rating.',
+        '**`/carss`** — Find the screenshot message for a car ID.',
                 '**`/wr`** — Sync or show world records for a track (`sync`, `show`).',
                 '**`/stats`** — Show racing statistics for yourself or another driver.',
                 '**`/vs`** — Compare two drivers head to head.',
