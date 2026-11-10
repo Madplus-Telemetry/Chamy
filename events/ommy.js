@@ -463,28 +463,10 @@ async function resolveBannedUser(guild, query) {
     } catch { return null; }
 }
 
-// Mirrors /lockchannel and /unlockchannel exactly.
-async function lockChannelHelper(channel, guild) {
-    const nonStaff = guild.roles.cache.filter(r =>
-        !r.permissions.has(PermissionsBitField.Flags.ManageMessages) &&
-        !r.permissions.has(PermissionsBitField.Flags.Administrator) &&
-        r.name !== '@everyone'
-    );
-    for (const [, role] of nonStaff)
-        await channel.permissionOverwrites.edit(role, { SendMessages: false }).catch(() => {});
-    await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false });
-}
-
-async function unlockChannelHelper(channel, guild) {
-    const nonStaff = guild.roles.cache.filter(r =>
-        !r.permissions.has(PermissionsBitField.Flags.ManageMessages) &&
-        !r.permissions.has(PermissionsBitField.Flags.Administrator) &&
-        r.name !== '@everyone'
-    );
-    for (const [, role] of nonStaff)
-        await channel.permissionOverwrites.edit(role, { SendMessages: null }).catch(() => {});
-    await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true });
-}
+// Same logic as /lockchannel and /unlockchannel (shared lib: snapshot on lock, restore on unlock).
+const channelLock = require('../lib/channelLock');
+async function lockChannelHelper(channel, guild)   { return channelLock.lockChannel(channel, guild); }
+async function unlockChannelHelper(channel, guild) { return channelLock.unlockChannel(channel, guild); }
 
 // ══════════════════════════════════════════════════════════════════════════
 // SCAN CHANNEL MESSAGES (with cache)
